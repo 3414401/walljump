@@ -373,14 +373,15 @@
     <section id="page-step3" class="page" role="tabpanel">
       <div class="notice">
         3단계는 3-1을 먼저 실행한 뒤, 다운로드된 <strong>sahi_step3-1_finished.xlsx</strong>를 3-2에 업로드하면 됩니다.
-        3-1의 최근 10년 설립 학교 목록은 GitHub Actions가 <strong>data/sheet-data.json</strong>으로 자동 갱신합니다.
       </div>
 
       <div class="card">
         <h2>3-1. 신설 학교 전입률 과대추정치 조정</h2>
         <p class="hint">
-          2단계 결과 파일을 올리면, GitHub에 저장된 최근 10년 설립 학교 목록과 학교명 기준으로 병합합니다.
-          학교개교일자가 <strong>20260101 이상</strong>이면 전입학생수 계, 전출학생수 계를 0으로 보정합니다.
+          '2단계 결과 파일'을 올리면, GitHub에 저장된 최근 10년 설립 학교 목록을 찾아냅니다. (자동 갱신됨)
+          (출처: https://www.edmgr.kr/ot/dim/dmm/bm/ot_dim_dmmbm02_m01?dtmcId=DA002024000003540000&callPage=/ot/cof/cof/mn/dtcfSearch)
+          최근 10년 설립 학교는 전학생을 대거 받으므로, 순전입률 계산 시 과대 추정 됩니다.
+          <strong> 따라서 학교개교일자가 20260101 이상이면 전입학생수 계, 전출학생수 계를 0으로 보정합니다. </strong>
         </p>
 
         <div class="dropzone" id="drop-step3-1" tabindex="0">
