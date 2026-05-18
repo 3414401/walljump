@@ -1081,7 +1081,7 @@
           row["학구순전입률"] = ratesByDistrict[row["학구ID"]] ?? 0;
         });
 
-        exportRecordsXlsx(rows, "sahi_step3-2_finished.xlsx");
+        exportRecordsXlsx(rows, "3-2단계 결과d.xlsx");
         setStatus("status-step3-2", `계산 완료: ${rows.length}행 다운로드`, "ok");
       } catch (error) {
         setStatus("status-step3-2", "오류: " + error.message, "error");
