@@ -373,7 +373,7 @@
 
     <section id="page-step3" class="page" role="tabpanel">
       <div class="notice">
-        3단계는 3-1을 먼저 실행한 뒤, 다운로드된 <strong>sahi_step3-1_finished.xlsx</strong>를 3-2에 업로드하면 됩니다.
+        3단계는 3-1을 먼저 실행한 뒤, 다운로드된 <strong>3-1단계 결과.xlsx</strong>를 3-2에 업로드하면 됩니다.
       </div>
 
       <div class="card">
@@ -406,7 +406,7 @@
         <div class="dropzone" id="drop-step3-2" tabindex="0">
           <input type="file" id="file-step3-2" accept=".xls,.xlsx,.json,.csv" />
           <strong>3-1 결과 파일 업로드</strong>
-          <span>sahi_step3-1_finished.xlsx</span>
+          <span>3-1단계 결과.xlsx</span>
         </div>
         <div class="btn-row">
           <button type="button" class="primary" id="btn-step3-2-process">3-2 계산 후 XLSX 다운로드</button>
@@ -1040,7 +1040,7 @@
         setStatus("status-step3-1", "학교명 기준 병합 및 보정 중...");
         const merged = mergeRowsBySchoolName(userData, sheetData);
         applyTransferCorrection(merged);
-        exportRecordsXlsx(merged, "sahi_step3-1_finished.xlsx");
+        exportRecordsXlsx(merged, "3-1단계 결과.xlsx");
         setStatus("status-step3-1", `완료: ${merged.length}행 다운로드`, "ok");
       } catch (error) {
         setStatus("status-step3-1", "오류: " + error.message, "error");
