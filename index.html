@@ -764,10 +764,10 @@
       applyStep1SidoFilter(event.target.value);
     });
     document.getElementById("btn-step1-xlsx").addEventListener("click", () => {
-      exportXlsx(step1Result, "sahi_step1_finished.xlsx");
+      exportXlsx(step1Result, "1단계 결과.xlsx");
     });
     document.getElementById("btn-step1-json").addEventListener("click", () => {
-      exportJson(step1Result, "sahi_step1_finished.json");
+      exportJson(step1Result, "1단계 결과.json");
     });
 
     function refreshStep2ColumnUI() {
