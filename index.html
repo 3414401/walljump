@@ -125,6 +125,19 @@
     button.secondary:hover { background: #dde3ec; }
     button:disabled { opacity: 0.45; cursor: not-allowed; }
 
+    a.download-link {
+      display: inline-block;
+      border-radius: 8px;
+      padding: 0.55rem 1rem;
+      background: #e8edf3;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    a.download-link:hover { background: #dde3ec; }
+
     .status {
       font-size: 0.86rem;
       color: var(--muted);
@@ -296,6 +309,16 @@
         <p class="hint"> <strong>1단계 결과 파일</strong>과 <strong>'전·출입 및 학업중단 학생 수'</strong>파일이 필요합니다.</p>
         <p class="hint"> '전·출입 및 학업중단 학생 수'파일은 아래 링크에서 다운 받고, 업로드 해주세요.</p>
         <p class="hint"> 다운받기 링크: 대구광역시 전·출입 및 학업중단 학생 수 초중고 통합 파일.</p>
+        <div class="btn-row">
+          <a
+            class="download-link"
+            href="https://docs.google.com/spreadsheets/d/1AG2ydH0-gYLKTqOc4Ue_6BwnCcRStWHo/export?format=xlsx"
+            target="_blank"
+            rel="noopener"
+          >
+            전·출입 및 학업중단 학생 수 파일 다운로드
+          </a>
+        </div>
          <p class="hint"> (출처: https://www.schoolinfo.go.kr/ng/go/pnnggo_a01_l2.do) </p>
 
         <div class="dropzone" id="drop-step2-base" tabindex="0">
