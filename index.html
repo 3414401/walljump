@@ -386,7 +386,7 @@
         <div class="dropzone" id="drop-step3-1" tabindex="0">
           <input type="file" id="file-step3-1" accept=".json,.xls,.xlsx,.csv" />
           <strong>2단계 결과 파일 업로드</strong>
-          <span>sahi_step2_finished.xlsx 또는 sahi_step2_finished.json</span>
+          <span>2단계 결과.xlsx 또는 2단계 결과.json</span>
         </div>
         <div class="btn-row">
           <button type="button" class="primary" id="btn-step3-1-process">3-1 실행 후 XLSX 다운로드</button>
@@ -891,10 +891,10 @@
     });
 
     document.getElementById("btn-step2-xlsx").addEventListener("click", () => {
-      exportXlsx(step2Result, "sahi_step2_finished.xlsx");
+      exportXlsx(step2Result, "2단계 결과.xlsx");
     });
     document.getElementById("btn-step2-json").addEventListener("click", () => {
-      exportJson(step2Result, "sahi_step2_finished.json");
+      exportJson(step2Result, "2단계 결과.json");
     });
 
     setupDropzone("drop-step3-1", "file-step3-1", (files) => {
