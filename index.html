@@ -764,10 +764,10 @@
       applyStep1SidoFilter(event.target.value);
     });
     document.getElementById("btn-step1-xlsx").addEventListener("click", () => {
-      exportXlsx(step1Result, "sahi_step1_finished.xlsx");
+      exportXlsx(step1Result, "1단계 결과.xlsx");
     });
     document.getElementById("btn-step1-json").addEventListener("click", () => {
-      exportJson(step1Result, "sahi_step1_finished.json");
+      exportJson(step1Result, "1단계 결과.json");
     });
 
     function refreshStep2ColumnUI() {
@@ -1211,7 +1211,7 @@
           document.getElementById("preview-step4-1-wrap"),
           data
         );
-        exportXlsx(data, "c_step1_finished.xlsx");
+        exportXlsx(data, "4-1단계 결과.xlsx");
         setStatus(
           "status-step4-1",
           `완료: ${data.rows.length}개 지역 결과 다운로드, 기존 동질화 지수 평균 ${averageHhi}`,
