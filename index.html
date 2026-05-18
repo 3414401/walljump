@@ -373,7 +373,7 @@
 
     <section id="page-step3" class="page" role="tabpanel">
       <div class="notice">
-        3단계는 3-1을 먼저 실행한 뒤, 다운로드된 <strong>3-1단계 결과.xlsx</strong>를 3-2에 업로드하면 됩니다.
+        3단계는 3-1을 먼저 실행한 뒤, 다운로드된 <strong>sahi_step3-1_finished.xlsx</strong>를 3-2에 업로드하면 됩니다.
       </div>
 
       <div class="card">
@@ -382,7 +382,7 @@
           '2단계 결과 파일'을 올리면, GitHub에 저장된 최근 10년 설립 학교 목록을 찾아냅니다. (자동 갱신됨)
           (출처: https://www.edmgr.kr/ot/dim/dmm/bm/ot_dim_dmmbm02_m01?dtmcId=DA002024000003540000&callPage=/ot/cof/cof/mn/dtcfSearch)
           최근 10년 설립 학교는 전학생을 대거 받으므로, 순전입률 계산 시 과대 추정 됩니다.
-          <strong> 따라서 학교개교일자가 20260101 이상이면 전입학생수 계, 전출학생수 계를 0으로 보정합니다. </strong>
+          <strong> 따라서 학교개교일자가 20160101 이상이면 전입학생수 계, 전출학생수 계를 0으로 보정합니다. </strong>
         </p>
 
         <div class="dropzone" id="drop-step3-1" tabindex="0">
@@ -406,7 +406,7 @@
         <div class="dropzone" id="drop-step3-2" tabindex="0">
           <input type="file" id="file-step3-2" accept=".xls,.xlsx,.json,.csv" />
           <strong>3-1 결과 파일 업로드</strong>
-          <span>3-1단계 결과d.xlsx</span>
+          <span>sahi_step3-1_finished.xlsx</span>
         </div>
         <div class="btn-row">
           <button type="button" class="primary" id="btn-step3-2-process">3-2 계산 후 XLSX 다운로드</button>
@@ -480,7 +480,7 @@
 
     const STEP1_JSON_FILE = "전국학교학구도연계정보표준데이터.json";
     const STEP3_SHEET_DATA_URL = "data/sheet-data.json";
-    const STEP3_BASE_DATE = 20260101;
+    const STEP3_BASE_DATE = 20160101;
     const CANONICAL_SIDO = "시도교육청명";
     const SIDO_ALIASES = ["시도교육청명", "시도교육청"];
     const STEP1_COLUMNS = ["학구ID", "학교ID", "학교명", CANONICAL_SIDO];
@@ -764,10 +764,10 @@
       applyStep1SidoFilter(event.target.value);
     });
     document.getElementById("btn-step1-xlsx").addEventListener("click", () => {
-      exportXlsx(step1Result, "1단계 결과.xlsx");
+      exportXlsx(step1Result, "sahi_step1_finished.xlsx");
     });
     document.getElementById("btn-step1-json").addEventListener("click", () => {
-      exportJson(step1Result, "1단계 결과.json");
+      exportJson(step1Result, "sahi_step1_finished.json");
     });
 
     function refreshStep2ColumnUI() {
@@ -997,7 +997,12 @@
       return userData.map((userRow) => {
         const schoolName = normalize(userRow["학교명"]);
         const matchingSheetRow = sheetMap.get(schoolName) || {};
-        return { ...matchingSheetRow, ...userRow };
+        const mergedRow = { ...matchingSheetRow, ...userRow };
+        const sheetOpenDate = getValueByHeaderName(matchingSheetRow, "학교개교일자");
+        if (!normalize(getValueByHeaderName(mergedRow, "학교개교일자")) && normalize(sheetOpenDate)) {
+          mergedRow["학교개교일자"] = sheetOpenDate;
+        }
+        return mergedRow;
       });
     }
 
@@ -1012,7 +1017,7 @@
 
     function applyTransferCorrection(rows) {
       rows.forEach((row) => {
-        const openDate = Number(String(row["학교개교일자"] || "").replace(/\D/g, ""));
+        const openDate = Number(String(getValueByHeaderName(row, "학교개교일자") || "").replace(/\D/g, ""));
         if (openDate && openDate >= STEP3_BASE_DATE) {
           row["전입학생수 계"] = 0;
           row["전출학생수 계"] = 0;
