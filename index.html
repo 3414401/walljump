@@ -465,7 +465,7 @@
         <div class="dropzone" id="drop-step4-2" tabindex="0">
           <input type="file" id="file-step4-2" accept=".xls,.xlsx,.json,.csv" />
           <strong>4-1 결과물 업로드</strong>
-          <span>c_step1_finished.xlsx</span>
+          <span>4-1단계 결과.xlsx</span>
         </div>
         <p class="status" id="status-step4-2"></p>
       </div>
@@ -1212,7 +1212,7 @@
           document.getElementById("preview-step4-1-wrap"),
           data
         );
-        exportXlsx(data, "c_step1_finished.xlsx");
+        exportXlsx(data, "4-1단계 결과.xlsx");
         setStatus(
           "status-step4-1",
           `완료: ${data.rows.length}개 지역 결과 다운로드, 기존 동질화 지수 평균 ${averageHhi}`,
