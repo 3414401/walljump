@@ -301,7 +301,7 @@
         <div class="dropzone" id="drop-step2-base" tabindex="0">
           <input type="file" id="file-step2-base" accept=".json,.xls,.xlsx,.csv" />
           <strong>'1단계 결과' 파일 업로드</strong>
-          <span>sahi_step1_finished.xlsx 또는 sahi_step1_finished.json</span>
+          <span>1단계 계산 결과.xlsx 또는 1단계 계산 결과.json</span>
         </div>
         <p class="status" id="status-step2-base"></p>
         
@@ -670,10 +670,10 @@
       applyStep1SidoFilter(event.target.value);
     });
     document.getElementById("btn-step1-xlsx").addEventListener("click", () => {
-      exportXlsx(step1Result, "sahi_step1_finished.xlsx");
+      exportXlsx(step1Result, "1단계 계산 결과.xlsx");
     });
     document.getElementById("btn-step1-json").addEventListener("click", () => {
-      exportJson(step1Result, "sahi_step1_finished.json");
+      exportJson(step1Result, "1단계 계산 결과.json");
     });
 
     function refreshStep2ColumnUI() {
