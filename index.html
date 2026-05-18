@@ -1,0 +1,986 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>다차원 사회·학업 동질성 지수(SAHI) 계산기</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --card: #fff;
+      --border: #dde3ec;
+      --text: #1a2332;
+      --muted: #5c6b7a;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --success: #059669;
+      --danger: #b91c1c;
+      --radius: 10px;
+      --shadow: 0 2px 12px rgba(26, 35, 50, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+      color: #fff;
+      padding: 1.5rem 1.25rem 1rem;
+    }
+
+    header h1 { margin: 0 0 0.35rem; font-size: 1.35rem; }
+    header p { margin: 0; opacity: 0.9; font-size: 0.9rem; }
+
+    nav.tabs {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.75rem 1.25rem 0;
+      background: #1e3a5f;
+      overflow-x: auto;
+    }
+
+    nav.tabs button {
+      border: none;
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      padding: 0.55rem 1rem;
+      border-radius: 8px 8px 0 0;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    nav.tabs button.active {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    main { max-width: 1100px; margin: 0 auto; padding: 1.25rem; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .card h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
+    .card h3 { margin: 1rem 0 0.5rem; font-size: 0.95rem; }
+    .hint { margin: 0 0 1rem; color: var(--muted); font-size: 0.88rem; }
+
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      background: #fff;
+    }
+
+    .dropzone:hover,
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background: #eff6ff;
+    }
+
+    .dropzone input { display: none; }
+    .dropzone strong { display: block; margin-bottom: 0.35rem; }
+    .dropzone span { color: var(--muted); font-size: 0.85rem; }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    button.primary,
+    button.secondary {
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 1rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    button.primary { background: var(--accent); color: #fff; }
+    button.primary:hover { background: var(--accent-hover); }
+    button.secondary { background: #e8edf3; color: var(--text); }
+    button.secondary:hover { background: #dde3ec; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .status {
+      font-size: 0.86rem;
+      color: var(--muted);
+      margin-top: 0.75rem;
+      min-height: 1.2em;
+    }
+
+    .status.ok { color: var(--success); font-weight: 700; }
+    .status.error { color: var(--danger); font-weight: 700; }
+
+    .cols-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 0.4rem 0.75rem;
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fafbfc;
+    }
+
+    .cols-grid label {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.88rem;
+      cursor: pointer;
+    }
+
+    .field-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.75rem;
+    }
+
+    .field-row label { font-size: 0.9rem; font-weight: 700; }
+    select {
+      padding: 0.45rem 0.6rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      max-height: 420px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+
+    table {
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      width: max-content;
+      min-width: 100%;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.55rem;
+      white-space: nowrap;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    th {
+      background: #eef2f7;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      font-weight: 700;
+    }
+
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    .steps { counter-reset: step; list-style: none; padding: 0; margin: 0; }
+    .steps li {
+      position: relative;
+      padding-left: 2rem;
+      margin-bottom: 0.65rem;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+
+    .steps li::before {
+      counter-increment: step;
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      width: 1.4rem;
+      height: 1.4rem;
+      line-height: 1.4rem;
+      text-align: center;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 50%;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .notice {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 0.8rem;
+      color: #1e40af;
+      font-size: 0.88rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>다차원 사회·학업 동질성 지수(SAHI) 계산기</h1>
+    <p>1단계 → 2단계 → 3-1 → 3-2 순서로 파일을 처리합니다.</p>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button type="button" class="active" data-page="step1" role="tab" aria-selected="true">1단계</button>
+    <button type="button" data-page="step2" role="tab" aria-selected="false">2단계</button>
+    <button type="button" data-page="step3" role="tab" aria-selected="false">3단계</button>
+  </nav>
+
+  <main>
+    <section id="page-step1" class="page active" role="tabpanel">
+      <div class="card">
+        <h2>1단계</h2>
+        <p class="hint">
+          <strong>전국학교학구도연계정보표준데이터.json</strong>에서 학구ID, 학교ID, 학교명, 시도교육청명을 추출합니다.
+          GitHub에는 이 JSON 파일도 함께 올려야 합니다.
+        </p>
+        <ul class="steps">
+          <li>시도교육청명을 선택합니다.</li>
+          <li>1단계 결과 파일을 다운로드합니다.</li>
+          <li>2단계로 이동해서 다운로드한 파일을 업로드합니다.</li>
+        </ul>
+
+        <div class="card" id="card-step1-sido" hidden style="margin-top:1rem;margin-bottom:0;box-shadow:none;border-style:dashed">
+          <h2>시도교육청명 선택</h2>
+          <p class="hint">선택한 시도교육청 데이터만 결과에 포함됩니다.</p>
+          <div class="field-row">
+            <label for="filter-sido">시도교육청명</label>
+            <select id="filter-sido">
+              <option value="">선택하세요</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="secondary" id="btn-step1-xlsx" disabled>XLSX 저장</button>
+          <button type="button" class="secondary" id="btn-step1-json" disabled>JSON 저장</button>
+        </div>
+        <p class="status" id="status-step1">데이터 불러오는 중...</p>
+        <div class="table-wrap" id="preview-step1-wrap" hidden>
+          <table id="preview-step1"></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-step2" class="page" role="tabpanel">
+      <div class="card">
+        <h2>2단계</h2>
+        <p class="hint">
+          <strong>1단계 결과 파일</strong>과 <strong>새로운 파일</strong>을 올리면 학교명 기준으로 병합합니다.
+        </p>
+
+        <div class="dropzone" id="drop-step2-base" tabindex="0">
+          <input type="file" id="file-step2-base" accept=".json,.xls,.xlsx,.csv" />
+          <strong>1단계 결과 파일 업로드</strong>
+          <span>sahi_step1_finished.xlsx 또는 sahi_step1_finished.json</span>
+        </div>
+        <p class="status" id="status-step2-base"></p>
+
+        <div class="dropzone" id="drop-step2-new" tabindex="0" style="margin-top:0.75rem">
+          <input type="file" id="file-step2-new" accept=".json,.xls,.xlsx,.csv" />
+          <strong>새로운 파일 업로드</strong>
+          <span>.xlsx, .xls, .json, .csv</span>
+        </div>
+        <p class="status" id="status-step2-new"></p>
+        <p class="status" id="status-step2-upload"></p>
+      </div>
+
+      <div class="card" id="card-step2-cols" hidden>
+        <h2>유지할 열 선택</h2>
+        <p class="hint">필수 열은 자동으로 포함됩니다. 병합 기준은 기본적으로 학교명입니다.</p>
+        <div class="btn-row" style="margin-top:0;margin-bottom:0.75rem">
+          <button type="button" class="secondary" id="btn-step2-select-all">전체 선택</button>
+          <button type="button" class="secondary" id="btn-step2-select-none">전체 해제</button>
+        </div>
+        <div class="cols-grid" id="step2-cols-grid"></div>
+
+        <div class="field-row" style="margin-top:1rem">
+          <label for="step2-merge-key">병합 기준 열</label>
+          <select id="step2-merge-key"></select>
+        </div>
+        <div class="field-row">
+          <label for="step2-col-order">2열 이후 열 순서</label>
+          <select id="step2-col-order">
+            <option value="selected">선택한 순서</option>
+            <option value="alpha">이름 가나다순</option>
+          </select>
+        </div>
+
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step2-process" disabled>2단계 실행</button>
+          <button type="button" class="secondary" id="btn-step2-xlsx" disabled>XLSX 저장</button>
+          <button type="button" class="secondary" id="btn-step2-json" disabled>JSON 저장</button>
+        </div>
+        <p class="status" id="status-step2"></p>
+        <div class="table-wrap" id="preview-step2-wrap" hidden>
+          <table id="preview-step2"></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-step3" class="page" role="tabpanel">
+      <div class="notice">
+        3단계는 3-1을 먼저 실행한 뒤, 다운로드된 <strong>sahi_step3-1_finished.xlsx</strong>를 3-2에 업로드하면 됩니다.
+        3-1의 최근 10년 설립 학교 목록은 GitHub Actions가 <strong>data/sheet-data.json</strong>으로 자동 갱신합니다.
+      </div>
+
+      <div class="card">
+        <h2>3-1. 신설 학교 전입률 과대추정치 조정</h2>
+        <p class="hint">
+          2단계 결과 파일을 올리면, GitHub에 저장된 최근 10년 설립 학교 목록과 학교명 기준으로 병합합니다.
+          학교개교일자가 <strong>20260101 이상</strong>이면 전입학생수 계, 전출학생수 계를 0으로 보정합니다.
+        </p>
+
+        <div class="dropzone" id="drop-step3-1" tabindex="0">
+          <input type="file" id="file-step3-1" accept=".json,.xls,.xlsx,.csv" />
+          <strong>2단계 결과 파일 업로드</strong>
+          <span>sahi_step2_finished.xlsx 또는 sahi_step2_finished.json</span>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step3-1-process">3-1 실행 후 XLSX 다운로드</button>
+        </div>
+        <p class="status" id="status-step3-1"></p>
+      </div>
+
+      <div class="card">
+        <h2>3-2. 학구순전입률 계산</h2>
+        <p class="hint">
+          3-1 결과 파일을 올리면 학구ID별 전입학생수, 전출학생수, 전체학생수를 합산하고
+          원본 데이터에 <strong>학구순전입률</strong> 열을 추가합니다.
+        </p>
+
+        <div class="dropzone" id="drop-step3-2" tabindex="0">
+          <input type="file" id="file-step3-2" accept=".xls,.xlsx,.json,.csv" />
+          <strong>3-1 결과 파일 업로드</strong>
+          <span>sahi_step3-1_finished.xlsx</span>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step3-2-process">3-2 계산 후 XLSX 다운로드</button>
+        </div>
+        <p class="status" id="status-step3-2"></p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+  (function () {
+    "use strict";
+
+    const STEP1_JSON_FILE = "전국학교학구도연계정보표준데이터.json";
+    const STEP3_SHEET_DATA_URL = "data/sheet-data.json";
+    const STEP3_BASE_DATE = 20260101;
+    const CANONICAL_SIDO = "시도교육청명";
+    const SIDO_ALIASES = ["시도교육청명", "시도교육청"];
+    const STEP1_COLUMNS = ["학구ID", "학교ID", "학교명", CANONICAL_SIDO];
+    const STEP2_REQUIRED_COLS = ["학교명", "학구ID", "학교ID", "지역", "전입학생수 계", "전출학생수 계", "전체학생수 계"];
+    const STEP2_NET_RATE_COL = "순전입률";
+
+    let step1Raw = { columns: [], records: [] };
+    let step1All = { headers: [], rows: [] };
+    let step1Result = { headers: [], rows: [] };
+    let step2BaseData = null;
+    let step2NewData = null;
+    let step2RawColumns = [];
+    let step2RawRecords = [];
+    let step2Result = { headers: [], rows: [] };
+    let step3File = null;
+    let step32File = null;
+
+    document.querySelectorAll("nav.tabs button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("nav.tabs button").forEach((b) => {
+          const active = b === btn;
+          b.classList.toggle("active", active);
+          b.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        document.querySelectorAll(".page").forEach((p) => p.classList.remove("active"));
+        document.getElementById("page-" + btn.dataset.page).classList.add("active");
+      });
+    });
+
+    function setupDropzone(zoneId, inputId, onFiles) {
+      const zone = document.getElementById(zoneId);
+      const input = document.getElementById(inputId);
+      zone.addEventListener("click", () => input.click());
+      zone.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          input.click();
+        }
+      });
+      input.addEventListener("change", () => {
+        if (input.files.length) onFiles(input.files);
+      });
+      zone.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        zone.classList.add("dragover");
+      });
+      zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
+      zone.addEventListener("drop", (event) => {
+        event.preventDefault();
+        zone.classList.remove("dragover");
+        if (event.dataTransfer.files.length) onFiles(event.dataTransfer.files);
+      });
+    }
+
+    function setStatus(id, message, type) {
+      const el = document.getElementById(id);
+      el.textContent = message;
+      el.className = "status" + (type ? " " + type : "");
+    }
+
+    function readFileAsArrayBuffer(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("파일을 읽지 못했습니다."));
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    function readFileAsText(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("파일을 읽지 못했습니다."));
+        reader.readAsText(file, "UTF-8");
+      });
+    }
+
+    function normalizeJson(data) {
+      if (Array.isArray(data)) return recordsToData(data);
+      if (data && Array.isArray(data.records)) return recordsToData(data.records, data.headers || data.columns);
+      if (data && Array.isArray(data.data)) return recordsToData(data.data);
+      throw new Error("JSON은 배열이거나 records 배열을 포함해야 합니다.");
+    }
+
+    function recordsToData(records, preferredColumns) {
+      const columns = [];
+      (preferredColumns || []).forEach((col) => {
+        if (!columns.includes(col)) columns.push(col);
+      });
+      records.forEach((record) => {
+        Object.keys(record || {}).forEach((col) => {
+          if (!columns.includes(col)) columns.push(col);
+        });
+      });
+      return { columns, records };
+    }
+
+    function aoaToRecords(rows) {
+      const nonEmptyRows = rows.filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
+      if (!nonEmptyRows.length) return { columns: [], records: [] };
+      const headers = nonEmptyRows[0].map((header) => String(header ?? "").trim());
+      const records = nonEmptyRows.slice(1).map((row) => {
+        const obj = {};
+        headers.forEach((header, index) => {
+          if (header) obj[header] = row[index] ?? "";
+        });
+        return obj;
+      });
+      return { columns: headers.filter(Boolean), records };
+    }
+
+    async function loadFile(file) {
+      const name = (file.name || "").toLowerCase();
+      if (name.endsWith(".json")) {
+        return normalizeJson(JSON.parse(await readFileAsText(file)));
+      }
+      if (name.endsWith(".csv")) {
+        const workbook = XLSX.read(await readFileAsText(file), { type: "string" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        return recordsToData(XLSX.utils.sheet_to_json(sheet, { defval: "" }));
+      }
+      if (name.endsWith(".xls") || name.endsWith(".xlsx")) {
+        const workbook = XLSX.read(await readFileAsArrayBuffer(file), { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        return recordsToData(XLSX.utils.sheet_to_json(sheet, { defval: "" }));
+      }
+      throw new Error("지원 형식: .xlsx, .xls, .json, .csv");
+    }
+
+    function dataToRecords(data) {
+      return data.rows.map((row) => {
+        const record = {};
+        data.headers.forEach((header, index) => {
+          record[header] = row[index] ?? "";
+        });
+        return record;
+      });
+    }
+
+    function normalize(value) {
+      return String(value ?? "").trim();
+    }
+
+    function toNumber(value) {
+      if (value === null || value === undefined || value === "") return 0;
+      const number = Number(String(value).replace(/,/g, "").replace(/%/g, "").trim());
+      return Number.isFinite(number) ? number : 0;
+    }
+
+    function getSidoValue(record) {
+      for (const name of SIDO_ALIASES) {
+        const value = record[name];
+        if (normalize(value)) return normalize(value);
+      }
+      return "";
+    }
+
+    function renderTable(tableEl, wrapEl, data, limit) {
+      const max = limit || 200;
+      let html = "<thead><tr>";
+      data.headers.forEach((header) => {
+        html += `<th>${escapeHtml(header)}</th>`;
+      });
+      html += "</tr></thead><tbody>";
+      data.rows.slice(0, max).forEach((row) => {
+        html += "<tr>";
+        row.forEach((cell) => {
+          html += `<td title="${escapeAttr(cell)}">${escapeHtml(cell)}</td>`;
+        });
+        html += "</tr>";
+      });
+      html += "</tbody>";
+      tableEl.innerHTML = html;
+      wrapEl.hidden = false;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replace(/'/g, "&#39;");
+    }
+
+    function exportXlsx(data, filename) {
+      const worksheet = XLSX.utils.aoa_to_sheet([data.headers, ...data.rows]);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "결과");
+      XLSX.writeFile(workbook, filename);
+    }
+
+    function exportRecordsXlsx(records, filename) {
+      const worksheet = XLSX.utils.json_to_sheet(records);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "결과");
+      XLSX.writeFile(workbook, filename);
+    }
+
+    function exportJson(data, filename) {
+      const blob = new Blob([JSON.stringify({ headers: data.headers, records: dataToRecords(data) }, null, 2)], {
+        type: "application/json;charset=utf-8"
+      });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+
+    async function initStep1() {
+      try {
+        setStatus("status-step1", "전국학교학구도 데이터 불러오는 중...");
+        const response = await fetch(STEP1_JSON_FILE);
+        if (!response.ok) throw new Error(STEP1_JSON_FILE + " 파일을 불러오지 못했습니다.");
+        step1Raw = normalizeJson(await response.json());
+        const sidoList = [...new Set(step1Raw.records.map(getSidoValue).filter(Boolean))]
+          .sort((a, b) => a.localeCompare(b, "ko"));
+
+        const select = document.getElementById("filter-sido");
+        select.innerHTML = '<option value="">선택하세요</option>';
+        sidoList.forEach((sido) => {
+          const option = document.createElement("option");
+          option.value = sido;
+          option.textContent = sido;
+          select.appendChild(option);
+        });
+
+        document.getElementById("card-step1-sido").hidden = sidoList.length === 0;
+        step1All = {
+          headers: STEP1_COLUMNS,
+          rows: step1Raw.records.map((record) => [
+            record["학구ID"] ?? "",
+            record["학교ID"] ?? "",
+            record["학교명"] ?? "",
+            getSidoValue(record)
+          ])
+        };
+        setStatus("status-step1", `변환 완료: ${step1All.rows.length}행 - 시도교육청명을 선택하세요.`, "ok");
+      } catch (error) {
+        setStatus("status-step1", "데이터 로드 실패: " + error.message, "error");
+      }
+    }
+
+    function applyStep1SidoFilter(sido) {
+      if (!sido) {
+        step1Result = { headers: step1All.headers, rows: [] };
+        document.getElementById("preview-step1-wrap").hidden = true;
+        document.getElementById("btn-step1-xlsx").disabled = true;
+        document.getElementById("btn-step1-json").disabled = true;
+        setStatus("status-step1", `전체 ${step1All.rows.length}행 - 시도교육청명을 선택하세요.`);
+        return;
+      }
+
+      step1Result = {
+        headers: step1All.headers,
+        rows: step1All.rows.filter((row) => normalize(row[3]) === sido)
+      };
+      renderTable(document.getElementById("preview-step1"), document.getElementById("preview-step1-wrap"), step1Result);
+      document.getElementById("btn-step1-xlsx").disabled = false;
+      document.getElementById("btn-step1-json").disabled = false;
+      setStatus("status-step1", `「${sido}」 ${step1Result.rows.length}행 선택 완료`, "ok");
+    }
+
+    document.getElementById("filter-sido").addEventListener("change", (event) => {
+      applyStep1SidoFilter(event.target.value);
+    });
+    document.getElementById("btn-step1-xlsx").addEventListener("click", () => {
+      exportXlsx(step1Result, "sahi_step1_finished.xlsx");
+    });
+    document.getElementById("btn-step1-json").addEventListener("click", () => {
+      exportJson(step1Result, "sahi_step1_finished.json");
+    });
+
+    function refreshStep2ColumnUI() {
+      const grid = document.getElementById("step2-cols-grid");
+      const mergeKey = document.getElementById("step2-merge-key");
+      grid.innerHTML = "";
+      mergeKey.innerHTML = "";
+
+      step2RawColumns.forEach((col, index) => {
+        const label = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = col;
+        checkbox.checked = STEP2_REQUIRED_COLS.includes(col) || index < 6;
+        checkbox.disabled = STEP2_REQUIRED_COLS.includes(col);
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(STEP2_REQUIRED_COLS.includes(col) ? `${col} (필수)` : col));
+        grid.appendChild(label);
+
+        const option = document.createElement("option");
+        option.value = col;
+        option.textContent = col;
+        mergeKey.appendChild(option);
+      });
+
+      if ([...mergeKey.options].some((option) => option.value === "학교명")) {
+        mergeKey.value = "학교명";
+      }
+
+      document.getElementById("card-step2-cols").hidden = false;
+      document.getElementById("btn-step2-process").disabled = false;
+    }
+
+    function mergeStep2Sources() {
+      if (!step2BaseData || !step2NewData) return;
+      step2RawColumns = [
+        ...step2BaseData.columns,
+        ...step2NewData.columns.filter((col) => !step2BaseData.columns.includes(col))
+      ];
+      step2RawRecords = [...step2BaseData.records, ...step2NewData.records];
+      refreshStep2ColumnUI();
+      document.getElementById("preview-step2-wrap").hidden = true;
+      document.getElementById("btn-step2-xlsx").disabled = true;
+      document.getElementById("btn-step2-json").disabled = true;
+      setStatus(
+        "status-step2-upload",
+        `두 파일 로드 완료: 1단계 ${step2BaseData.records.length}행 + 새 파일 ${step2NewData.records.length}행`,
+        "ok"
+      );
+    }
+
+    setupDropzone("drop-step2-base", "file-step2-base", async (files) => {
+      try {
+        setStatus("status-step2-base", "1단계 결과 파일 읽는 중...");
+        step2BaseData = await loadFile(files[0]);
+        setStatus("status-step2-base", `1단계 결과 파일 로드 완료: ${step2BaseData.records.length}행`, "ok");
+        mergeStep2Sources();
+      } catch (error) {
+        setStatus("status-step2-base", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step2-new", "file-step2-new", async (files) => {
+      try {
+        setStatus("status-step2-new", "새 파일 읽는 중...");
+        step2NewData = await loadFile(files[0]);
+        setStatus("status-step2-new", `새 파일 로드 완료: ${step2NewData.records.length}행`, "ok");
+        mergeStep2Sources();
+      } catch (error) {
+        setStatus("status-step2-new", "오류: " + error.message, "error");
+      }
+    });
+
+    function getSelectedStep2Columns() {
+      return [...document.querySelectorAll("#step2-cols-grid input:checked")].map((checkbox) => checkbox.value);
+    }
+
+    function mergeByKeySingleColumns(keyCol, dataCols, records) {
+      const groups = new Map();
+      const order = [];
+      records.forEach((record) => {
+        const key = normalize(record[keyCol]);
+        if (!groups.has(key)) {
+          groups.set(key, []);
+          order.push(key);
+        }
+        groups.get(key).push(record);
+      });
+
+      const sortedKeys = [
+        ...order.filter((key) => groups.get(key).length > 1),
+        ...order.filter((key) => groups.get(key).length <= 1)
+      ];
+      const headers = [keyCol, ...dataCols];
+      const rows = sortedKeys.map((key) => {
+        const list = groups.get(key);
+        return [
+          key,
+          ...dataCols.map((col) => {
+            const found = list.find((record) => normalize(record[col]) !== "");
+            return found ? found[col] : "";
+          })
+        ];
+      });
+      return { headers, rows };
+    }
+
+    function findNumericValue(headers, row, baseName) {
+      const candidates = headers
+        .map((header, index) => ({ header, index }))
+        .filter(({ header }) => header === baseName || new RegExp("^" + escapeRegExp(baseName) + "_\\d+$").test(header));
+      for (const { index } of candidates) {
+        const number = toNumber(row[index]);
+        if (Number.isFinite(number)) return number;
+      }
+      return NaN;
+    }
+
+    function escapeRegExp(value) {
+      return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    function addNetTransferRate(data) {
+      const headers = [...data.headers, STEP2_NET_RATE_COL];
+      const rows = data.rows.map((row) => {
+        const inCount = findNumericValue(data.headers, row, "전입학생수 계");
+        const outCount = findNumericValue(data.headers, row, "전출학생수 계");
+        const totalCount = findNumericValue(data.headers, row, "전체학생수 계");
+        const rate = Number.isFinite(inCount) && Number.isFinite(outCount) && Number.isFinite(totalCount) && totalCount !== 0
+          ? ((100 * (inCount - outCount)) / totalCount).toFixed(2)
+          : "";
+        return [...row, rate];
+      });
+      return { headers, rows };
+    }
+
+    function removeDuplicateSchoolNameColumns(data) {
+      const keepIndexes = [];
+      let schoolNameSeen = false;
+      data.headers.forEach((header, index) => {
+        const normalizedHeader = String(header).replace(/\s+/g, "").trim();
+        const isSchoolName = normalizedHeader === "학교명" || /^학교명_\d+$/.test(normalizedHeader);
+        if (isSchoolName) {
+          if (schoolNameSeen) return;
+          schoolNameSeen = true;
+        }
+        keepIndexes.push(index);
+      });
+      return {
+        headers: keepIndexes.map((index) => data.headers[index]),
+        rows: data.rows.map((row) => keepIndexes.map((index) => row[index]))
+      };
+    }
+
+    document.getElementById("btn-step2-select-all").addEventListener("click", () => {
+      document.querySelectorAll("#step2-cols-grid input").forEach((checkbox) => {
+        checkbox.checked = true;
+      });
+    });
+
+    document.getElementById("btn-step2-select-none").addEventListener("click", () => {
+      document.querySelectorAll("#step2-cols-grid input").forEach((checkbox) => {
+        checkbox.checked = STEP2_REQUIRED_COLS.includes(checkbox.value);
+      });
+    });
+
+    document.getElementById("btn-step2-process").addEventListener("click", () => {
+      try {
+        let selected = [...new Set([...getSelectedStep2Columns(), ...STEP2_REQUIRED_COLS.filter((col) => step2RawColumns.includes(col))])];
+        const keyCol = step2RawColumns.includes("학교명") ? "학교명" : document.getElementById("step2-merge-key").value;
+        if (!selected.includes(keyCol)) selected = [keyCol, ...selected];
+        const missingRequired = STEP2_REQUIRED_COLS.filter((col) => !step2RawColumns.includes(col));
+        if (missingRequired.length) {
+          setStatus("status-step2", `필수 열이 없습니다: ${missingRequired.join(", ")}`, "error");
+          return;
+        }
+
+        selected = selected.filter((col) => col !== keyCol);
+        if (document.getElementById("step2-col-order").value === "alpha") {
+          selected = selected.sort((a, b) => a.localeCompare(b, "ko"));
+        }
+
+        const data = mergeByKeySingleColumns(keyCol, selected, step2RawRecords);
+        step2Result = removeDuplicateSchoolNameColumns(addNetTransferRate(data));
+        renderTable(document.getElementById("preview-step2"), document.getElementById("preview-step2-wrap"), step2Result);
+        document.getElementById("btn-step2-xlsx").disabled = false;
+        document.getElementById("btn-step2-json").disabled = false;
+        setStatus("status-step2", `완료: ${step2Result.rows.length}행, ${step2Result.headers.length}열`, "ok");
+      } catch (error) {
+        setStatus("status-step2", "오류: " + error.message, "error");
+      }
+    });
+
+    document.getElementById("btn-step2-xlsx").addEventListener("click", () => {
+      exportXlsx(step2Result, "sahi_step2_finished.xlsx");
+    });
+    document.getElementById("btn-step2-json").addEventListener("click", () => {
+      exportJson(step2Result, "sahi_step2_finished.json");
+    });
+
+    setupDropzone("drop-step3-1", "file-step3-1", (files) => {
+      step3File = files[0];
+      setStatus("status-step3-1", `${step3File.name} 선택됨`, "ok");
+    });
+
+    setupDropzone("drop-step3-2", "file-step3-2", (files) => {
+      step32File = files[0];
+      setStatus("status-step3-2", `${step32File.name} 선택됨`, "ok");
+    });
+
+    async function loadStep3SheetData() {
+      const response = await fetch(STEP3_SHEET_DATA_URL, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error("최근 10년 설립 학교 목록(data/sheet-data.json)을 불러오지 못했습니다.");
+      }
+      const data = await response.json();
+      return normalizeJson(data).records;
+    }
+
+    function mergeRowsBySchoolName(userData, sheetData) {
+      const sheetMap = new Map();
+      sheetData.forEach((row) => {
+        const schoolName = normalize(row["학교명"]);
+        if (schoolName) sheetMap.set(schoolName, row);
+      });
+
+      return userData.map((userRow) => {
+        const schoolName = normalize(userRow["학교명"]);
+        const matchingSheetRow = sheetMap.get(schoolName) || {};
+        return { ...matchingSheetRow, ...userRow };
+      });
+    }
+
+    function applyTransferCorrection(rows) {
+      rows.forEach((row) => {
+        const openDate = Number(String(row["학교개교일자"] || "").replace(/\D/g, ""));
+        if (openDate && openDate >= STEP3_BASE_DATE) {
+          row["전입학생수 계"] = 0;
+          row["전출학생수 계"] = 0;
+        }
+      });
+    }
+
+    document.getElementById("btn-step3-1-process").addEventListener("click", async () => {
+      if (!step3File) {
+        alert("2단계 결과 파일을 선택해주세요.");
+        return;
+      }
+      try {
+        setStatus("status-step3-1", "2단계 결과 파일 읽는 중...");
+        const userData = (await loadFile(step3File)).records;
+        setStatus("status-step3-1", "최근 10년 설립 학교 목록 불러오는 중...");
+        const sheetData = await loadStep3SheetData();
+        if (!sheetData.length) throw new Error("data/sheet-data.json이 비어 있습니다. GitHub Actions를 먼저 실행하세요.");
+
+        setStatus("status-step3-1", "학교명 기준 병합 및 보정 중...");
+        const merged = mergeRowsBySchoolName(userData, sheetData);
+        applyTransferCorrection(merged);
+        exportRecordsXlsx(merged, "sahi_step3-1_finished.xlsx");
+        setStatus("status-step3-1", `완료: ${merged.length}행 다운로드`, "ok");
+      } catch (error) {
+        setStatus("status-step3-1", "오류: " + error.message, "error");
+      }
+    });
+
+    document.getElementById("btn-step3-2-process").addEventListener("click", async () => {
+      if (!step32File) {
+        alert("3-1 결과 파일을 선택해주세요.");
+        return;
+      }
+      try {
+        setStatus("status-step3-2", "3-1 결과 파일 읽는 중...");
+        const rows = (await loadFile(step32File)).records;
+        if (!rows.length) throw new Error("파일에 데이터가 없습니다.");
+
+        const groups = {};
+        rows.forEach((row) => {
+          const schoolDistrictId = row["학구ID"];
+          if (!schoolDistrictId) return;
+          if (!groups[schoolDistrictId]) {
+            groups[schoolDistrictId] = { transferIn: 0, transferOut: 0, totalStudents: 0 };
+          }
+          groups[schoolDistrictId].transferIn += toNumber(row["전입학생수 계"]);
+          groups[schoolDistrictId].transferOut += toNumber(row["전출학생수 계"]);
+          groups[schoolDistrictId].totalStudents += toNumber(row["전체학생수 계"]);
+        });
+
+        const ratesByDistrict = {};
+        Object.keys(groups).forEach((schoolDistrictId) => {
+          const group = groups[schoolDistrictId];
+          ratesByDistrict[schoolDistrictId] = group.totalStudents === 0
+            ? 0
+            : (100 * (group.transferIn - group.transferOut)) / group.totalStudents;
+        });
+
+        rows.forEach((row) => {
+          row["학구순전입률"] = ratesByDistrict[row["학구ID"]] ?? 0;
+        });
+
+        exportRecordsXlsx(rows, "sahi_step3-2_finished.xlsx");
+        setStatus("status-step3-2", `계산 완료: ${rows.length}행 다운로드`, "ok");
+      } catch (error) {
+        setStatus("status-step3-2", "오류: " + error.message, "error");
+      }
+    });
+
+    initStep1();
+  })();
+  </script>
+</body>
+</html>
