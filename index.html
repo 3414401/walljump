@@ -460,16 +460,30 @@
       </div>
 
       <div class="card">
-        <h2>4-2. 다음 단계 준비</h2>
+        <h2>4-2. 동질화 지수 병합</h2>
         <p class="hint">
-          4-1 결과물을 업로드해두는 단계입니다. 이후 계산 기능은 나중에 추가합니다.
+          3-2단계 결과 파일에 4-1단계에서 계산한 지역별 동질화 지수를 지역 기준으로 병합합니다.
         </p>
-        <div class="dropzone" id="drop-step4-2" tabindex="0">
-          <input type="file" id="file-step4-2" accept=".xls,.xlsx,.json,.csv" />
-          <strong>4-1 결과물 업로드</strong>
-          <span>4-1단계 결과.xlsx</span>
+        <div class="dropzone" id="drop-step4-2-file1" tabindex="0">
+          <input type="file" id="file-step4-2-file1" accept=".xls,.xlsx,.json,.csv" />
+          <strong>3-2단계 결과 파일을 업로드해주세요.</strong>
+          <span>3-2단계 결과.xlsx 또는 .json, .csv</span>
+        </div>
+        <p class="status" id="status-step4-2-file1"></p>
+
+        <div class="dropzone" id="drop-step4-2-file2" tabindex="0" style="margin-top:0.75rem">
+          <input type="file" id="file-step4-2-file2" accept=".xls,.xlsx,.json,.csv" />
+          <strong>4-1단계 결과 파일을 업로드해주세요.</strong>
+          <span>4-1단계 결과.xlsx 또는 .json, .csv</span>
+        </div>
+        <p class="status" id="status-step4-2-file2"></p>
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step4-2-process">4-2 병합 후 XLSX 다운로드</button>
         </div>
         <p class="status" id="status-step4-2"></p>
+        <div class="table-wrap" id="preview-step4-2-wrap" hidden>
+          <table id="preview-step4-2"></table>
+        </div>
       </div>
     </section>
   </main>
@@ -499,7 +513,8 @@
     let step3File = null;
     let step32File = null;
     let step41File = null;
-    let step42File = null;
+    let step42File1 = null;
+    let step42File2 = null;
 
     document.querySelectorAll("nav.tabs button").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1093,9 +1108,14 @@
       setStatus("status-step4-1", `${step41File.name} 선택됨`, "ok");
     });
 
-    setupDropzone("drop-step4-2", "file-step4-2", (files) => {
-      step42File = files[0];
-      setStatus("status-step4-2", `${step42File.name} 업로드 완료. 다음 기능은 추후 추가 예정입니다.`, "ok");
+    setupDropzone("drop-step4-2-file1", "file-step4-2-file1", (files) => {
+      step42File1 = files[0];
+      setStatus("status-step4-2-file1", `${step42File1.name} 선택됨`, "ok");
+    });
+
+    setupDropzone("drop-step4-2-file2", "file-step4-2-file2", (files) => {
+      step42File2 = files[0];
+      setStatus("status-step4-2-file2", `${step42File2.name} 선택됨`, "ok");
     });
 
     function findRecordValue(record, targetHeader) {
@@ -1105,6 +1125,60 @@
         String(header).replace(/\s+/g, "").trim().toLowerCase() === normalizedTarget
       );
       return key ? record[key] : "";
+    }
+
+    function findRecordKey(record, targetHeader) {
+      if (!record) return "";
+      const normalizedTarget = String(targetHeader).replace(/\s+/g, "").trim();
+      return Object.keys(record).find((header) =>
+        String(header).replace(/\s+/g, "").trim() === normalizedTarget
+      ) || "";
+    }
+
+    function normalizeDaeguRegion(value) {
+      return normalize(value).replace(/^대구광역시\s*/, "");
+    }
+
+    function buildHomogeneityByRegion(records) {
+      const map = new Map();
+
+      records.forEach((record) => {
+        const region = normalize(getValueByHeaderName(record, "지역(시트)") || getValueByHeaderName(record, "지역"));
+        if (!region) return;
+        map.set(region, getValueByHeaderName(record, "동질화 지수"));
+      });
+
+      if (!map.size) {
+        throw new Error("4-1단계 결과 파일에서 지역(시트)/지역 및 동질화 지수 열을 찾지 못했습니다.");
+      }
+
+      return map;
+    }
+
+    function mergeStep42Records(file1Records, file2Records) {
+      const homogeneityByRegion = buildHomogeneityByRegion(file2Records);
+      let matchedCount = 0;
+
+      const mergedRecords = file1Records.map((record) => {
+        const regionKey = findRecordKey(record, "지역");
+        if (!regionKey) {
+          throw new Error("3-2단계 결과 파일에 지역 열이 없습니다.");
+        }
+
+        const cleanedRegion = normalizeDaeguRegion(record[regionKey]);
+        const out = { ...record, [regionKey]: cleanedRegion };
+
+        if (homogeneityByRegion.has(cleanedRegion)) {
+          out["동질화 지수"] = homogeneityByRegion.get(cleanedRegion);
+          matchedCount += 1;
+        } else if (!Object.prototype.hasOwnProperty.call(out, "동질화 지수")) {
+          out["동질화 지수"] = "";
+        }
+
+        return out;
+      });
+
+      return { mergedRecords, matchedCount };
     }
 
     function formatWon(value) {
@@ -1219,6 +1293,40 @@
         );
       } catch (error) {
         setStatus("status-step4-1", "오류: " + error.message, "error");
+      }
+    });
+
+    document.getElementById("btn-step4-2-process").addEventListener("click", async () => {
+      if (!step42File1) {
+        alert("3-2단계 결과 파일을 선택해주세요.");
+        return;
+      }
+
+      if (!step42File2) {
+        alert("4-1단계 결과 파일을 선택해주세요.");
+        return;
+      }
+
+      try {
+        setStatus("status-step4-2", "4-2 병합 처리 중...");
+        const file1Records = (await loadFile(step42File1)).records;
+        const file2Records = (await loadFile(step42File2)).records;
+
+        if (!file1Records.length) throw new Error("3-2단계 결과 파일에 데이터가 없습니다.");
+        if (!file2Records.length) throw new Error("4-1단계 결과 파일에 데이터가 없습니다.");
+
+        const { mergedRecords, matchedCount } = mergeStep42Records(file1Records, file2Records);
+        const resultData = recordsToData(mergedRecords);
+
+        renderTable(
+          document.getElementById("preview-step4-2"),
+          document.getElementById("preview-step4-2-wrap"),
+          { headers: resultData.columns, rows: resultData.records.map((record) => resultData.columns.map((col) => record[col] ?? "")) }
+        );
+        exportRecordsXlsx(mergedRecords, "4-2단계 결과.xlsx");
+        setStatus("status-step4-2", `완료: ${mergedRecords.length}행 다운로드, ${matchedCount}행 동질화 지수 병합`, "ok");
+      } catch (error) {
+        setStatus("status-step4-2", "오류: " + error.message, "error");
       }
     });
 
