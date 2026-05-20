@@ -1096,8 +1096,15 @@
           row["학구순전입률"] = ratesByDistrict[row["학구ID"]] ?? 0;
         });
 
-        exportRecordsXlsx(rows, "3-2단계 결과d.xlsx");
-        setStatus("status-step3-2", `계산 완료: ${rows.length}행 다운로드`, "ok");
+        const { filledCount, averageRate } = fillEmptyNetTransferRateWithOverallAverage(rows);
+
+        exportRecordsXlsx(rows, "3-2단계 결과.xlsx");
+        setStatus(
+          "status-step3-2",
+          `계산 완료: ${rows.length}행 다운로드` +
+            (filledCount > 0 ? `, 빈 순전입률 ${filledCount}행을 전체 평균 ${averageRate}(%)로 채움` : ""),
+          "ok"
+        );
       } catch (error) {
         setStatus("status-step3-2", "오류: " + error.message, "error");
       }
@@ -1155,6 +1162,37 @@
       return map;
     }
 
+    function isEmptyCellValue(value) {
+      return value === null || value === undefined || String(value).trim() === "";
+    }
+
+    function fillEmptyNetTransferRateWithOverallAverage(rows) {
+      let totalIn = 0;
+      let totalOut = 0;
+      let totalStudents = 0;
+
+      rows.forEach((row) => {
+        totalIn += toNumber(getValueByHeaderName(row, "전입학생수 계"));
+        totalOut += toNumber(getValueByHeaderName(row, "전출학생수 계"));
+        totalStudents += toNumber(getValueByHeaderName(row, "전체학생수 계"));
+      });
+
+      const averageRate = totalStudents === 0
+        ? 0
+        : Number(((100 * (totalIn - totalOut)) / totalStudents).toFixed(2));
+
+      let filledCount = 0;
+      rows.forEach((row) => {
+        const rateKey = findRecordKey(row, "순전입률") || "순전입률";
+        if (isEmptyCellValue(row[rateKey])) {
+          row[rateKey] = averageRate;
+          filledCount += 1;
+        }
+      });
+
+      return { averageRate, filledCount };
+    }
+
     function mergeStep42Records(file1Records, file2Records) {
       const homogeneityByRegion = buildHomogeneityByRegion(file2Records);
       let matchedCount = 0;
@@ -1179,6 +1217,19 @@
       });
 
       return { mergedRecords, matchedCount };
+    }
+
+    function removeStep42OutputColumns(records) {
+      const removeColumns = new Set(["전입학생수 계", "전출학생수 계", "순전입률"]);
+      return records.map((record) => {
+        const out = {};
+        Object.keys(record).forEach((key) => {
+          if (!removeColumns.has(String(key).trim())) {
+            out[key] = record[key];
+          }
+        });
+        return out;
+      });
     }
 
     function formatWon(value) {
@@ -1316,15 +1367,16 @@
         if (!file2Records.length) throw new Error("4-1단계 결과 파일에 데이터가 없습니다.");
 
         const { mergedRecords, matchedCount } = mergeStep42Records(file1Records, file2Records);
-        const resultData = recordsToData(mergedRecords);
+        const outputRecords = removeStep42OutputColumns(mergedRecords);
+        const resultData = recordsToData(outputRecords);
 
         renderTable(
           document.getElementById("preview-step4-2"),
           document.getElementById("preview-step4-2-wrap"),
           { headers: resultData.columns, rows: resultData.records.map((record) => resultData.columns.map((col) => record[col] ?? "")) }
         );
-        exportRecordsXlsx(mergedRecords, "4-2단계 결과.xlsx");
-        setStatus("status-step4-2", `완료: ${mergedRecords.length}행 다운로드, ${matchedCount}행 동질화 지수 병합`, "ok");
+        exportRecordsXlsx(outputRecords, "4-2단계 결과.xlsx");
+        setStatus("status-step4-2", `완료: ${outputRecords.length}행 다운로드, ${matchedCount}행 동질화 지수 병합`, "ok");
       } catch (error) {
         setStatus("status-step4-2", "오류: " + error.message, "error");
       }
