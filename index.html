@@ -258,7 +258,7 @@
 <body>
   <header>
     <h1>다차원 사회·학업 동질성 지수(SAHI) 계산기</h1>
-    <p>1단계 → 2단계 → 3-1 → 3-2 → 4단계 순서로 파일을 처리합니다.</p>
+    <p>1단계 → 2단계 → 3-1 → 3-2 → 4단계 → 5단계 순서로 파일을 처리합니다.</p>
   </header>
 
   <nav class="tabs" role="tablist">
@@ -266,6 +266,7 @@
     <button type="button" data-page="step2" role="tab" aria-selected="false">2단계</button>
     <button type="button" data-page="step3" role="tab" aria-selected="false">3단계</button>
     <button type="button" data-page="step4" role="tab" aria-selected="false">4단계</button>
+    <button type="button" data-page="step5" role="tab" aria-selected="false">5단계</button>
   </nav>
 
   <main>
@@ -402,9 +403,6 @@
           3-1 결과 파일을 올리면 학구ID별 전입학생수, 전출학생수, 전체학생수를 합산하고
           원본 데이터에 <strong>학구순전입률</strong> 열을 추가합니다.
         </p>
-         <p class="hint">
-          (전입, 전출 수 정보 없는 곳은 평균치로 추정)
-        </p>
 
         <div class="dropzone" id="drop-step3-2" tabindex="0">
           <input type="file" id="file-step3-2" accept=".xls,.xlsx,.json,.csv" />
@@ -489,6 +487,58 @@
         </div>
       </div>
     </section>
+
+    <section id="page-step5" class="page" role="tabpanel">
+      <div class="card">
+        <h2>4-2단계 결과 파일 업로드</h2>
+        <p class="hint">4-2단계 결과 파일을 올리면 전입학생수 계, 전출학생수 계, 순전입률 열은 자동으로 제거됩니다.</p>
+        <div class="dropzone" id="drop-step5-base" tabindex="0">
+          <input type="file" id="file-step5-base" accept=".xls,.xlsx,.json,.csv" />
+          <strong>4-2단계 결과 파일을 업로드해주세요.</strong>
+          <span>4-2단계 결과.xlsx 또는 .json, .csv</span>
+        </div>
+        <p class="status" id="status-step5-base"></p>
+      </div>
+
+      <div class="card">
+        <h2>5-1. P_multi 계산하기</h2>
+        <p class="hint"><strong>1) 아래 버튼으로 다문화 학생 비율 데이터 파일을 다운로드하세요.</strong></p>
+        <div class="btn-row">
+          <a
+            class="download-link"
+            href="https://docs.google.com/spreadsheets/d/1VLyM5KrYR1r_ESw_avrk4KEVVEmk-9CQ/export?format=xlsx"
+            target="_blank"
+            rel="noopener"
+          >
+            다문화 학생 비율 데이터 다운로드
+          </a>
+        </div>
+        <p class="hint"><strong>2) 다운로드한 파일을 업로드한 뒤 P_multi 계산을 실행하세요.</strong></p>
+        <div class="dropzone" id="drop-step5-1" tabindex="0" style="margin-top:1rem">
+          <input type="file" id="file-step5-1" accept=".xls,.xlsx,.json,.csv" />
+          <strong>다문화 학생 비율 데이터 파일 업로드</strong>
+          <span>.xlsx, .xls, .json, .csv</span>
+        </div>
+        <p class="status" id="status-step5-1-upload"></p>
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step5-1-process">5-1 P_multi 계산 후 XLSX 다운로드</button>
+        </div>
+        <p class="status" id="status-step5-1"></p>
+        <div class="table-wrap" id="preview-step5-1-wrap" hidden>
+          <table id="preview-step5-1"></table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>5-2. P_benefit 계산하기</h2>
+        <p class="hint">추후 기능이 추가될 예정입니다.</p>
+      </div>
+
+      <div class="card">
+        <h2>5-3. P_special 계산하기</h2>
+        <p class="hint">추후 기능이 추가될 예정입니다.</p>
+      </div>
+    </section>
   </main>
 
   <script>
@@ -504,6 +554,14 @@
     const STEP2_REQUIRED_COLS = ["학교명", "학구ID", "학교ID", "지역", "전입학생수 계", "전출학생수 계", "전체학생수 계"];
     const STEP2_NET_RATE_COL = "순전입률";
     const STEP4_REQUIRED_REGIONS = ["중구", "수성구", "서구", "북구", "동구", "달성군", "달서구", "남구", "군위군"];
+    const STEP51_MULTICULTURAL_SCHOOL_COLS = [
+      "초등학교",
+      "중학교",
+      "일반고등학교",
+      "특수목적고등학교",
+      "특성화고등학교",
+      "자율고등학교"
+    ];
 
     let step1Raw = { columns: [], records: [] };
     let step1All = { headers: [], rows: [] };
@@ -518,6 +576,8 @@
     let step41File = null;
     let step42File1 = null;
     let step42File2 = null;
+    let step5BaseRecords = null;
+    let step51File = null;
 
     document.querySelectorAll("nav.tabs button").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1235,6 +1295,52 @@
       });
     }
 
+    function buildMulticulturalRatioTable(records) {
+      return records.map((row) => {
+        const region = normalizeDaeguRegion(getValueByHeaderName(row, "지역"));
+        let numerator = 0;
+        STEP51_MULTICULTURAL_SCHOOL_COLS.forEach((col) => {
+          numerator += toNumber(getValueByHeaderName(row, col));
+        });
+        const totalStudents = toNumber(getValueByHeaderName(row, "총학생수"));
+        const ratio = totalStudents === 0 ? 0 : numerator / totalStudents;
+        return {
+          지역: region,
+          "다문화학생비율": Number(ratio.toFixed(6))
+        };
+      }).filter((row) => row.지역);
+    }
+
+    function mergeStep51WithBase(baseRecords, multiRecords) {
+      const ratioByRegion = new Map();
+      multiRecords.forEach((row) => {
+        const region = normalize(row.지역);
+        if (region) ratioByRegion.set(region, row["다문화학생비율"]);
+      });
+
+      let matchedCount = 0;
+      const mergedRecords = baseRecords.map((record) => {
+        const regionKey = findRecordKey(record, "지역");
+        if (!regionKey) {
+          throw new Error("4-2단계 결과 파일에 지역 열이 없습니다.");
+        }
+
+        const cleanedRegion = normalizeDaeguRegion(record[regionKey]);
+        const out = { ...record, [regionKey]: cleanedRegion };
+
+        if (ratioByRegion.has(cleanedRegion)) {
+          out["다문화학생비율"] = ratioByRegion.get(cleanedRegion);
+          matchedCount += 1;
+        } else if (!Object.prototype.hasOwnProperty.call(out, "다문화학생비율")) {
+          out["다문화학생비율"] = "";
+        }
+
+        return out;
+      });
+
+      return { mergedRecords, matchedCount };
+    }
+
     function formatWon(value) {
       return `${Math.round(value).toLocaleString("ko-KR")}원`;
     }
@@ -1382,6 +1488,70 @@
         setStatus("status-step4-2", `완료: ${outputRecords.length}행 다운로드, ${matchedCount}행 동질화 지수 병합`, "ok");
       } catch (error) {
         setStatus("status-step4-2", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step5-base", "file-step5-base", async (files) => {
+      try {
+        setStatus("status-step5-base", "4-2단계 결과 파일 읽는 중...");
+        const records = (await loadFile(files[0])).records;
+        if (!records.length) throw new Error("파일에 데이터가 없습니다.");
+        step5BaseRecords = removeStep42OutputColumns(records);
+        setStatus(
+          "status-step5-base",
+          `${files[0].name} 로드 완료 (${step5BaseRecords.length}행, 전입/전출/순전입률 열 제거됨)`,
+          "ok"
+        );
+      } catch (error) {
+        step5BaseRecords = null;
+        setStatus("status-step5-base", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step5-1", "file-step5-1", (files) => {
+      step51File = files[0];
+      setStatus("status-step5-1-upload", `${step51File.name} 선택됨`, "ok");
+    });
+
+    document.getElementById("btn-step5-1-process").addEventListener("click", async () => {
+      if (!step5BaseRecords) {
+        alert("4-2단계 결과 파일을 먼저 업로드해주세요.");
+        return;
+      }
+      if (!step51File) {
+        alert("다문화 학생 비율 데이터 파일을 선택해주세요.");
+        return;
+      }
+
+      try {
+        setStatus("status-step5-1", "5-1 P_multi 계산 중...");
+        const sourceRecords = (await loadFile(step51File)).records;
+        if (!sourceRecords.length) throw new Error("다문화 학생 비율 데이터 파일에 데이터가 없습니다.");
+
+        const multiRecords = buildMulticulturalRatioTable(sourceRecords);
+        if (!multiRecords.length) throw new Error("다문화학생비율을 계산할 수 있는 행이 없습니다.");
+
+        const { mergedRecords, matchedCount } = mergeStep51WithBase(step5BaseRecords, multiRecords);
+        const resultData = recordsToData(mergedRecords);
+
+        renderTable(
+          document.getElementById("preview-step5-1"),
+          document.getElementById("preview-step5-1-wrap"),
+          {
+            headers: resultData.columns,
+            rows: resultData.records.map((record) =>
+              resultData.columns.map((col) => record[col] ?? "")
+            )
+          }
+        );
+        exportRecordsXlsx(mergedRecords, "5-1단계 결과.xlsx");
+        setStatus(
+          "status-step5-1",
+          `완료: ${mergedRecords.length}행 다운로드, ${matchedCount}행 다문화학생비율 병합`,
+          "ok"
+        );
+      } catch (error) {
+        setStatus("status-step5-1", "오류: " + error.message, "error");
       }
     });
 
