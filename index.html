@@ -612,6 +612,22 @@
       "특성화고등학교",
       "자율고등학교"
     ];
+    const STEP52_REGION_ALIASES = ["지역", "시군구", "시군구명", "자치구", "자치구명", "행정구역"];
+    const STEP52_BENEFIT_VALUE_ALIASES = [
+      "수급자수",
+      "수급자 수",
+      "교육급여수급자수",
+      "10~24세수급자수",
+      "10~24세 교육급여 수급자수"
+    ];
+    const STEP52_YOUTH_VALUE_ALIASES = [
+      "9~24세 인구수",
+      "9~24세인구수",
+      "9-24세 인구수",
+      "9-24세인구수",
+      "924세인구수",
+      "청소년수"
+    ];
 
     let step1Raw = { columns: [], records: [] };
     let step1All = { headers: [], rows: [] };
@@ -1394,20 +1410,149 @@
       return { mergedRecords, matchedCount };
     }
 
-    function sumNumericByRegion(records, valueHeader, regionHeader = "지역") {
+    function normalizeHeaderForMatch(header) {
+      return String(header)
+        .replace(/\s+/g, "")
+        .replace(/[~～\-–—]/g, "")
+        .trim()
+        .toLowerCase();
+    }
+
+    function headerMatchesAlias(header, aliases) {
+      const normalizedHeader = normalizeHeaderForMatch(header);
+      return aliases.some((alias) => {
+        const normalizedAlias = normalizeHeaderForMatch(alias);
+        return (
+          normalizedHeader === normalizedAlias ||
+          normalizedHeader.includes(normalizedAlias) ||
+          normalizedAlias.includes(normalizedHeader)
+        );
+      });
+    }
+
+    function getValueByHeaderAliases(row, aliases) {
+      if (!row) return "";
+      const keys = Object.keys(row);
+      const sortedAliases = [...aliases].sort(
+        (a, b) => normalizeHeaderForMatch(b).length - normalizeHeaderForMatch(a).length
+      );
+
+      for (const alias of sortedAliases) {
+        const key = keys.find((header) => normalizeHeaderForMatch(header) === normalizeHeaderForMatch(alias));
+        if (key !== undefined) return row[key];
+      }
+      for (const alias of sortedAliases) {
+        if (normalizeHeaderForMatch(alias).length < 3) continue;
+        const key = keys.find((header) => headerMatchesAlias(header, [alias]));
+        if (key !== undefined) return row[key];
+      }
+      return "";
+    }
+
+    function findMatchedHeaderName(records, aliases) {
+      if (!records || !records.length) return "";
+      const keys = Object.keys(records[0] || {});
+      for (const alias of [...aliases].sort(
+        (a, b) => normalizeHeaderForMatch(b).length - normalizeHeaderForMatch(a).length
+      )) {
+        const key = keys.find((header) => normalizeHeaderForMatch(header) === normalizeHeaderForMatch(alias));
+        if (key !== undefined) return key;
+        if (normalizeHeaderForMatch(alias).length >= 3) {
+          const fuzzyKey = keys.find((header) => headerMatchesAlias(header, [alias]));
+          if (fuzzyKey !== undefined) return fuzzyKey;
+        }
+      }
+      return "";
+    }
+
+    function listRecordColumnNames(records) {
+      const set = new Set();
+      (records || []).forEach((row) => {
+        Object.keys(row || {}).forEach((key) => {
+          const trimmed = String(key).trim();
+          if (trimmed) set.add(trimmed);
+        });
+      });
+      return [...set];
+    }
+
+    function recordsHaveStep52Columns(records, regionAliases, valueAliases) {
+      if (!records || !records.length) return false;
+      const hasRegion = records.some((row) => normalizeDaeguRegion(getValueByHeaderAliases(row, regionAliases)));
+      const hasValue = records.some((row) => getValueByHeaderAliases(row, valueAliases) !== "");
+      return hasRegion && hasValue;
+    }
+
+    function recordsFromSheetRows(rows, regionAliases, valueAliases) {
+      const nonEmptyRows = rows.filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
+
+      for (let headerIndex = 0; headerIndex < Math.min(nonEmptyRows.length, 15); headerIndex += 1) {
+        const headers = nonEmptyRows[headerIndex].map((cell) => String(cell ?? "").trim());
+        const hasRegionHeader = headers.some((header) => headerMatchesAlias(header, regionAliases));
+        const hasValueHeader = headers.some((header) => headerMatchesAlias(header, valueAliases));
+        if (!hasRegionHeader || !hasValueHeader) continue;
+
+        return nonEmptyRows.slice(headerIndex + 1).map((row) => {
+          const record = {};
+          headers.forEach((header, index) => {
+            if (header) record[header] = row[index] ?? "";
+          });
+          return record;
+        }).filter((record) => Object.values(record).some((value) => String(value).trim() !== ""));
+      }
+
+      return [];
+    }
+
+    async function loadStep52Records(file, regionAliases, valueAliases, fileLabel) {
+      const name = (file.name || "").toLowerCase();
+      let records = [];
+
+      if (name.endsWith(".xls") || name.endsWith(".xlsx")) {
+        const workbook = await loadWorkbook(file);
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+        records = recordsFromSheetRows(rows, regionAliases, valueAliases);
+      }
+
+      if (!recordsHaveStep52Columns(records, regionAliases, valueAliases)) {
+        records = (await loadFile(file)).records;
+      }
+
+      if (!recordsHaveStep52Columns(records, regionAliases, valueAliases)) {
+        const columns = listRecordColumnNames(records).join(", ") || "(열 없음)";
+        throw new Error(
+          `${fileLabel}: 필요한 열을 찾지 못했습니다. ` +
+          `필요: ${regionAliases[0]}, ${valueAliases[0]} / ` +
+          `파일에 있는 열: ${columns}`
+        );
+      }
+
+      return records;
+    }
+
+    function sumNumericByRegionAliases(records, valueAliases, regionAliases) {
       const map = new Map();
       records.forEach((row) => {
-        const region = normalizeDaeguRegion(getValueByHeaderName(row, regionHeader));
+        const region = normalizeDaeguRegion(getValueByHeaderAliases(row, regionAliases));
         if (!region) return;
-        const value = toNumber(getValueByHeaderName(row, valueHeader));
+        const value = toNumber(getValueByHeaderAliases(row, valueAliases));
         map.set(region, (map.get(region) || 0) + value);
       });
       return map;
     }
 
     function buildEducationBenefitRateByRegion(benefitRecords, youthRecords) {
-      const beneficiarySumByRegion = sumNumericByRegion(benefitRecords, "수급자수");
-      const youthPopulationByRegion = sumNumericByRegion(youthRecords, "9~24세 인구수");
+      const beneficiarySumByRegion = sumNumericByRegionAliases(
+        benefitRecords,
+        STEP52_BENEFIT_VALUE_ALIASES,
+        STEP52_REGION_ALIASES
+      );
+      const youthPopulationByRegion = sumNumericByRegionAliases(
+        youthRecords,
+        STEP52_YOUTH_VALUE_ALIASES,
+        STEP52_REGION_ALIASES
+      );
       const rateByRegion = new Map();
 
       beneficiarySumByRegion.forEach((beneficiarySum, region) => {
@@ -1691,16 +1836,32 @@
       try {
         setStatus("status-step5-2", "5-2 P_benefit 계산 중...");
         const baseRecords = (await loadFile(step52BaseFile)).records;
-        const benefitRecords = (await loadFile(step52BenefitFile)).records;
-        const youthRecords = (await loadFile(step52YouthFile)).records;
+        const benefitRecords = await loadStep52Records(
+          step52BenefitFile,
+          STEP52_REGION_ALIASES,
+          STEP52_BENEFIT_VALUE_ALIASES,
+          "10~24세 교육급여자수 파일"
+        );
+        const youthRecords = await loadStep52Records(
+          step52YouthFile,
+          STEP52_REGION_ALIASES,
+          STEP52_YOUTH_VALUE_ALIASES,
+          "청소년 수 파일"
+        );
 
         if (!baseRecords.length) throw new Error("5-1단계 결과 파일에 데이터가 없습니다.");
-        if (!benefitRecords.length) throw new Error("10~24세 교육급여자수 파일에 데이터가 없습니다.");
-        if (!youthRecords.length) throw new Error("청소년 수 파일에 데이터가 없습니다.");
 
         const rateByRegion = buildEducationBenefitRateByRegion(benefitRecords, youthRecords);
         if (!rateByRegion.size) {
-          throw new Error("지역별 교육수급자청소년비율을 계산할 수 없습니다. 열 이름을 확인해주세요.");
+          const benefitRegionCol = findMatchedHeaderName(benefitRecords, STEP52_REGION_ALIASES) || "(지역 열 없음)";
+          const benefitValueCol = findMatchedHeaderName(benefitRecords, STEP52_BENEFIT_VALUE_ALIASES) || "(수급자수 열 없음)";
+          const youthRegionCol = findMatchedHeaderName(youthRecords, STEP52_REGION_ALIASES) || "(지역 열 없음)";
+          const youthValueCol = findMatchedHeaderName(youthRecords, STEP52_YOUTH_VALUE_ALIASES) || "(인구수 열 없음)";
+          throw new Error(
+            "지역별 교육수급자청소년비율을 계산할 수 없습니다. " +
+            `교육급여 파일: ${benefitRegionCol}, ${benefitValueCol} / ` +
+            `청소년 수 파일: ${youthRegionCol}, ${youthValueCol}`
+          );
         }
 
         const { mergedRecords, matchedCount } = mergeStep52WithBase(baseRecords, rateByRegion);
