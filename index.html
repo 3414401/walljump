@@ -559,6 +559,26 @@
         </div>
         <p class="status" id="status-step5-2-benefit"></p>
 
+        <p class="hint"><strong>3) 청소년 수 파일을 다운로드하세요.</strong></p>
+        <div class="btn-row">
+          <a
+            class="download-link"
+            href="https://docs.google.com/spreadsheets/d/1-vS9fSIq9XuxzA9c6g7nMopv68_4XCX1/export?format=xlsx"
+            target="_blank"
+            rel="noopener"
+          >
+            청소년 수 다운받기
+          </a>
+        </div>
+
+        <p class="hint"><strong>4) 다운로드한 청소년 수 파일을 업로드하세요.</strong></p>
+        <div class="dropzone" id="drop-step5-2-youth" tabindex="0" style="margin-top:1rem">
+          <input type="file" id="file-step5-2-youth" accept=".xls,.xlsx,.json,.csv" />
+          <strong>청소년 수 파일 업로드</strong>
+          <span>지역, 청소년 인구수(또는 9~24세 인구수) 열 필요</span>
+        </div>
+        <p class="status" id="status-step5-2-youth"></p>
+
         <div class="btn-row">
           <button type="button" class="primary" id="btn-step5-2-process">5-2 P_benefit 계산 후 XLSX 다운로드</button>
         </div>
@@ -614,6 +634,7 @@
     let step51File = null;
     let step52BaseFile = null;
     let step52BenefitFile = null;
+    let step52YouthFile = null;
 
     document.querySelectorAll("nav.tabs button").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1414,6 +1435,47 @@
       return { mergedRecords, matchedCount };
     }
 
+    function getYouthPopulationValue(row) {
+      const youthPopulation = getValueByHeaderName(row, "청소년 인구수");
+      if (youthPopulation !== "") return youthPopulation;
+      return getValueByHeaderName(row, "9~24세 인구수");
+    }
+
+    function buildYouthPopulationByRegion(youthRecords) {
+      const populationByRegion = new Map();
+
+      youthRecords.forEach((row) => {
+        const region = normalizeDaeguRegion(getValueByHeaderName(row, "지역"));
+        if (!region) return;
+        const population = toNumber(getYouthPopulationValue(row));
+        populationByRegion.set(region, (populationByRegion.get(region) || 0) + population);
+      });
+
+      return populationByRegion;
+    }
+
+    function applyStep52BenefitRate(mergedRecords, youthPopulationByRegion) {
+      let matchedCount = 0;
+      const finalRecords = mergedRecords.map((record) => {
+        const regionKey = findRecordKey(record, "지역");
+        const region = normalizeDaeguRegion(record[regionKey]);
+        const beneficiarySum = toNumber(record["수급자수 총합"]);
+        const youthPopulation = youthPopulationByRegion.get(region) || 0;
+        const ratio = youthPopulation === 0 ? 0 : Number((beneficiarySum / youthPopulation).toFixed(6));
+
+        if (youthPopulationByRegion.has(region) && beneficiarySum !== 0) {
+          matchedCount += 1;
+        }
+
+        return {
+          ...record,
+          "청소년 교육급여자 비율": ratio
+        };
+      });
+
+      return { finalRecords, matchedCount };
+    }
+
     function formatWon(value) {
       return `${Math.round(value).toLocaleString("ko-KR")}원`;
     }
@@ -1638,6 +1700,11 @@
       setStatus("status-step5-2-benefit", `${step52BenefitFile.name} 선택됨`, "ok");
     });
 
+    setupDropzone("drop-step5-2-youth", "file-step5-2-youth", (files) => {
+      step52YouthFile = files[0];
+      setStatus("status-step5-2-youth", `${step52YouthFile.name} 선택됨`, "ok");
+    });
+
     document.getElementById("btn-step5-2-process").addEventListener("click", async () => {
       if (!step52BaseFile) {
         alert("5-1단계 결과 파일을 선택해주세요.");
@@ -1647,19 +1714,31 @@
         alert("10~24세 교육급여자수 파일을 선택해주세요.");
         return;
       }
+      if (!step52YouthFile) {
+        alert("청소년 수 파일을 선택해주세요.");
+        return;
+      }
 
       try {
         setStatus("status-step5-2", "5-2 P_benefit 계산 중...");
         const baseRecords = (await loadFile(step52BaseFile)).records;
         const benefitRecords = (await loadFile(step52BenefitFile)).records;
+        const youthRecords = (await loadFile(step52YouthFile)).records;
 
         if (!baseRecords.length) throw new Error("5-1단계 결과 파일에 데이터가 없습니다.");
         if (!benefitRecords.length) throw new Error("10~24세 교육급여자수 파일에 데이터가 없습니다.");
+        if (!youthRecords.length) throw new Error("청소년 수 파일에 데이터가 없습니다.");
 
-        const hasRegionCol = benefitRecords.some((row) => getValueByHeaderName(row, "지역") !== "");
-        const hasCountCol = benefitRecords.some((row) => getValueByHeaderName(row, "수급자수") !== "");
-        if (!hasRegionCol || !hasCountCol) {
+        const hasBenefitRegionCol = benefitRecords.some((row) => getValueByHeaderName(row, "지역") !== "");
+        const hasBenefitCountCol = benefitRecords.some((row) => getValueByHeaderName(row, "수급자수") !== "");
+        if (!hasBenefitRegionCol || !hasBenefitCountCol) {
           throw new Error("10~24세 교육급여자수 파일에 '지역'열과 '수급자수'열이 필요합니다.");
+        }
+
+        const hasYouthRegionCol = youthRecords.some((row) => getValueByHeaderName(row, "지역") !== "");
+        const hasYouthPopulationCol = youthRecords.some((row) => getYouthPopulationValue(row) !== "");
+        if (!hasYouthRegionCol || !hasYouthPopulationCol) {
+          throw new Error("청소년 수 파일에 '지역'열과 '청소년 인구수'(또는 '9~24세 인구수')열이 필요합니다.");
         }
 
         const sumByRegion = buildBenefitSumByRegion(benefitRecords);
@@ -1667,8 +1746,18 @@
           throw new Error("지역별 수급자수 총합을 계산할 수 없습니다. '지역'과 '수급자수' 값을 확인해주세요.");
         }
 
-        const { mergedRecords, matchedCount } = mergeStep52WithBase(baseRecords, sumByRegion);
-        const resultData = recordsToData(mergedRecords);
+        const { mergedRecords, matchedCount: sumMatchedCount } = mergeStep52WithBase(baseRecords, sumByRegion);
+
+        const youthPopulationByRegion = buildYouthPopulationByRegion(youthRecords);
+        if (!youthPopulationByRegion.size) {
+          throw new Error("지역별 청소년 인구수를 계산할 수 없습니다. '지역'과 인구수 열을 확인해주세요.");
+        }
+
+        const { finalRecords, matchedCount: rateMatchedCount } = applyStep52BenefitRate(
+          mergedRecords,
+          youthPopulationByRegion
+        );
+        const resultData = recordsToData(finalRecords);
 
         renderTable(
           document.getElementById("preview-step5-2"),
@@ -1680,10 +1769,10 @@
             )
           }
         );
-        exportRecordsXlsx(mergedRecords, "5-2단계 결과.xlsx");
+        exportRecordsXlsx(finalRecords, "5-2단계 결과.xlsx");
         setStatus(
           "status-step5-2",
-          `완료: ${mergedRecords.length}행 다운로드, ${matchedCount}행 수급자수 총합 병합`,
+          `완료: ${finalRecords.length}행 다운로드, ${sumMatchedCount}행 수급자수 총합 · ${rateMatchedCount}행 청소년 교육급여자 비율`,
           "ok"
         );
       } catch (error) {
