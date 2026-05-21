@@ -1360,7 +1360,7 @@
           numerator += toNumber(getValueByHeaderName(row, col));
         });
         const totalStudents = toNumber(getValueByHeaderName(row, "총학생수"));
-        const ratio = totalStudents === 0 ? 0 : numerator / totalStudents;
+        const ratio = totalStudents === 0 ? 0 : (100 * numerator) / totalStudents;
         return {
           지역: region,
           "다문화학생비율": Number(ratio.toFixed(6))
@@ -1461,7 +1461,7 @@
         const region = normalizeDaeguRegion(record[regionKey]);
         const beneficiarySum = toNumber(record["수급자수 총합"]);
         const youthPopulation = youthPopulationByRegion.get(region) || 0;
-        const ratio = youthPopulation === 0 ? 0 : Number((beneficiarySum / youthPopulation).toFixed(6));
+        const ratio = youthPopulation === 0 ? 0 : Number(((100 * beneficiarySum) / youthPopulation).toFixed(6));
 
         if (youthPopulationByRegion.has(region) && beneficiarySum !== 0) {
           matchedCount += 1;
