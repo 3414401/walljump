@@ -692,7 +692,25 @@
     const STEP6_SCHOOL_TYPE_CATEGORIES = ["초등학교", "중학교", "고등학교"];
     const STEP6_SCHOOL_TYPE_HEADERS = ["학제유형명", "학제유형", "학제 유형"];
     const STEP6_SCHOOL_NAME_HEADERS = ["학교명", "학교 명"];
-
+    const STEP6_FIELD_ALIASES = {
+      U: ["U", "u"],
+      EM: ["EM", "em"],
+      EH: ["EH", "eh"],
+      EX: ["EX", "ex"],
+      GP: ["GP", "gp"],
+      GX: ["GX", "gx"],
+      HB: ["HB", "hb"],
+      graduateTotal: ["유초중등학생_졸업생수", "유초중등학생 졸업생수"],
+      higherEd: ["고등교육진학학생수"],
+      unemployed: ["무직자수"],
+      employed: ["취업자수"],
+      abroadUniv: ["국외대학진학학생수"],
+      abroadCollege: ["국외전문대학진학학생수"],
+      studyAbroad: ["유학이민학생수"],
+      domesticUniv: ["국내대학진학학생수"],
+      domesticCollege: ["국내전문대학진학학생수"],
+      domesticVarious: ["국내각종학교진학학생수"]
+    };
     document.querySelectorAll("nav.tabs button").forEach((btn) => {
       btn.addEventListener("click", () => {
         document.querySelectorAll("nav.tabs button").forEach((b) => {
@@ -1610,27 +1628,92 @@
 
     function recordsHaveStep6Columns(records) {
       if (!records || !records.length) return false;
-      const hasSchoolType = records.some((row) => normalizeStep6SchoolType(getStep6SchoolTypeValue(row)));
+      const hasSchoolType = records.some((row) => getStep6SchoolTypeCategory(row));
       const hasSchoolName = records.some((row) => normalize(getStep6SchoolNameValue(row)));
       return hasSchoolType && hasSchoolName;
     }
 
-    function recordsFromStep6SheetRows(rows) {
+    function isStep6MetricCodeHeader(header) {
+      const key = normalizeHeaderKey(header);
+      if (!key) return false;
+      if (/^(u|em|eh|ex|gp|gx|hb)$/i.test(key)) return true;
+      return Object.values(STEP6_FIELD_ALIASES).flat().some((alias) => {
+        const normalizedAlias = normalizeHeaderKey(alias);
+        return normalizedAlias.length >= 4 && (key === normalizedAlias || key.includes(normalizedAlias));
+      });
+    }
+
+    function isStep6MetricHeaderRow(row) {
+      const cells = row.map((cell) => String(cell ?? "").trim());
+      const metricCount = cells.filter((cell) => isStep6MetricCodeHeader(cell)).length;
+      return metricCount >= 2;
+    }
+
+    function mergeStep6HeaderRows(mainHeaders, subHeaders) {
+      return mainHeaders.map((mainHeader, index) => {
+        const main = String(mainHeader ?? "").trim();
+        const sub = String(subHeaders[index] ?? "").trim();
+        if (sub && (isStep6MetricCodeHeader(sub) || !main)) return sub;
+        return main || sub;
+      });
+    }
+
+    function getStep6NumericValue(row, fieldKey) {
+      const aliases = STEP6_FIELD_ALIASES[fieldKey] || [fieldKey];
+      const direct = getValueByHeaderAliases(row, aliases);
+      if (direct !== "") return toNumber(direct);
+
+      const keys = Object.keys(row || {});
+      for (const key of keys) {
+        const normalizedKey = normalizeHeaderKey(key);
+        for (const alias of aliases) {
+          if (normalizedKey === normalizeHeaderKey(alias)) {
+            return toNumber(row[key]);
+          }
+        }
+      }
+      for (const key of keys) {
+        const normalizedKey = normalizeHeaderKey(key);
+        for (const alias of aliases) {
+          const normalizedAlias = normalizeHeaderKey(alias);
+          if (normalizedAlias.length >= 4 && normalizedKey.includes(normalizedAlias)) {
+            return toNumber(row[key]);
+          }
+        }
+      }
+      return 0;
+    }
+
+    function recordsFromStep6SheetRows(rows, sheetNameHint) {
       const nonEmptyRows = rows.filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
 
-      for (let headerIndex = 0; headerIndex < Math.min(nonEmptyRows.length, 20); headerIndex += 1) {
+      for (let headerIndex = 0; headerIndex < Math.min(nonEmptyRows.length, 25); headerIndex += 1) {
         const headers = nonEmptyRows[headerIndex].map((cell) => String(cell ?? "").trim());
         const hasSchoolTypeHeader = headers.some((header) => headerMatchesAny(header, STEP6_SCHOOL_TYPE_HEADERS));
         const hasSchoolNameHeader = headers.some((header) => headerMatchesAny(header, STEP6_SCHOOL_NAME_HEADERS));
         if (!hasSchoolTypeHeader || !hasSchoolNameHeader) continue;
 
-        return nonEmptyRows.slice(headerIndex + 1).map((row) => {
-          const record = {};
-          headers.forEach((header, index) => {
+        let combinedHeaders = headers;
+        let dataStartIndex = headerIndex + 1;
+
+        if (headerIndex + 1 < nonEmptyRows.length) {
+          const subHeaders = nonEmptyRows[headerIndex + 1].map((cell) => String(cell ?? "").trim());
+          if (isStep6MetricHeaderRow(subHeaders)) {
+            combinedHeaders = mergeStep6HeaderRows(headers, subHeaders);
+            dataStartIndex = headerIndex + 2;
+          }
+        }
+
+        return nonEmptyRows.slice(dataStartIndex).map((row) => {
+          const record = { _sheetHint: sheetNameHint || "" };
+          combinedHeaders.forEach((header, index) => {
             record[step6HeaderKeyForColumn(header, index)] = row[index] ?? "";
           });
           return record;
-        }).filter((record) => Object.values(record).some((value) => String(value).trim() !== ""));
+        }).filter((record) => {
+          const schoolName = normalize(getStep6SchoolNameValue(record));
+          return schoolName && schoolName !== "학교명";
+        });
       }
 
       return [];
@@ -1642,9 +1725,11 @@
 
       if (name.endsWith(".xls") || name.endsWith(".xlsx")) {
         const workbook = await loadWorkbook(file);
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-        records = recordsFromStep6SheetRows(rows);
+        workbook.SheetNames.forEach((sheetName) => {
+          const sheet = workbook.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+          records = records.concat(recordsFromStep6SheetRows(rows, sheetName));
+        });
       }
 
       if (!recordsHaveStep6Columns(records)) {
@@ -1661,60 +1746,76 @@
       return records;
     }
 
+    function getStep6SchoolTypeCategory(row) {
+      const fromColumn = normalizeStep6SchoolType(getStep6SchoolTypeValue(row));
+      if (fromColumn && STEP6_SCHOOL_TYPE_CATEGORIES.includes(fromColumn)) return fromColumn;
+      if (row._sheetHint) {
+        const fromSheet = normalizeStep6SchoolType(row._sheetHint);
+        if (fromSheet && STEP6_SCHOOL_TYPE_CATEGORIES.includes(fromSheet)) return fromSheet;
+      }
+      return fromColumn;
+    }
+
     function normalizeStep6SchoolType(value) {
       const schoolType = normalize(value);
       if (!schoolType) return "";
       if (schoolType === "초등학교" || schoolType.includes("초등")) return "초등학교";
-      if (schoolType === "중학교" || schoolType.includes("중학")) return "중학교";
+      if (
+        schoolType === "중학교" ||
+        schoolType.includes("중등") ||
+        (schoolType.includes("중학") && !schoolType.includes("고등"))
+      ) {
+        return "중학교";
+      }
       if (
         schoolType === "고등학교" ||
         schoolType === "일반고" ||
         schoolType === "특성화고" ||
+        schoolType === "특목고" ||
+        schoolType === "자율고" ||
         schoolType.includes("고등") ||
         schoolType.includes("일반고") ||
-        schoolType.includes("특성화")
+        schoolType.includes("특성화") ||
+        schoolType.includes("특목") ||
+        schoolType.includes("자율")
       ) {
         return "고등학교";
       }
-      return schoolType;
-    }
-
-    function step6Num(row, header) {
-      return toNumber(getValueByHeaderName(row, header));
+      return "";
     }
 
     function computeStep6HhiGraduate(row, schoolTypeCategory) {
       if (schoolTypeCategory === "초등학교") {
-        const U = step6Num(row, "U");
-        const EM = step6Num(row, "EM");
+        const U = getStep6NumericValue(row, "U");
+        const EM = getStep6NumericValue(row, "EM");
         if (U === 0) return 0;
         return ((U - EM) ** 2 + EM ** 2) / (U ** 2);
       }
 
       if (schoolTypeCategory === "중학교") {
-        const U = step6Num(row, "U");
+        const U = getStep6NumericValue(row, "U");
         if (U === 0) return 0;
-        const EH = step6Num(row, "EH");
-        const EX = step6Num(row, "EX");
-        const GP = step6Num(row, "GP");
-        const GX = step6Num(row, "GX");
-        const HB = step6Num(row, "HB");
+        const EH = getStep6NumericValue(row, "EH");
+        const EX = getStep6NumericValue(row, "EX");
+        const GP = getStep6NumericValue(row, "GP");
+        const GX = getStep6NumericValue(row, "GX");
+        const HB = getStep6NumericValue(row, "HB");
         return ((U - EH) ** 2 + EX ** 2 + GP ** 2 + GX ** 2 + HB ** 2) / (U ** 2);
       }
 
       if (schoolTypeCategory === "고등학교") {
-        const graduateTotal = step6Num(row, "유초중등학생_졸업생수");
+        const graduateTotal = getStep6NumericValue(row, "graduateTotal");
         if (graduateTotal === 0) return 0;
 
-        const higherEd = step6Num(row, "고등교육진학학생수");
-        const unemployed = step6Num(row, "무직자수");
-        const employed = step6Num(row, "취업자수");
-        const abroadUniv = step6Num(row, "국외대학진학학생수");
-        const abroadCollege = step6Num(row, "국외전문대학진학학생수");
-        const studyAbroad = step6Num(row, "유학이민학생수");
-        const domesticUniv = step6Num(row, "국내대학진학학생수");
-        const domesticCollege = step6Num(row, "국내전문대학진학학생수");
-        const domesticVarious = step6Num(row, "국내각종학교진학학생수");
+        const higherEd = getStep6NumericValue(row, "higherEd");
+        const unemployed = getStep6NumericValue(row, "unemployed");
+        const employed = getStep6NumericValue(row, "employed");
+        const abroadUniv = getStep6NumericValue(row, "abroadUniv");
+        const abroadCollege = getStep6NumericValue(row, "abroadCollege");
+        const studyAbroad = getStep6NumericValue(row, "studyAbroad");
+        const domesticUniv = getStep6NumericValue(row, "domesticUniv");
+        const domesticCollege = getStep6NumericValue(row, "domesticCollege");
+        const domesticVarious = getStep6NumericValue(row, "domesticVarious");
 
         const remainder = graduateTotal - (higherEd + unemployed + employed);
         const numerator =
@@ -1758,7 +1859,7 @@
 
     function buildStep6PathTable(records) {
       const rowsWithHhi = records.map((row) => {
-        const schoolTypeCategory = normalizeStep6SchoolType(getStep6SchoolTypeValue(row));
+        const schoolTypeCategory = getStep6SchoolTypeCategory(row);
         const hhi = computeStep6HhiGraduate(row, schoolTypeCategory);
 
         return {
@@ -1771,6 +1872,7 @@
       const minMaxByCategory = buildStep6MinMaxByCategory(rowsWithHhi);
 
       return rowsWithHhi
+        .filter((item) => STEP6_SCHOOL_TYPE_CATEGORIES.includes(item._schoolTypeCategory))
         .map((item) => {
           const { min, max } = minMaxByCategory[item._schoolTypeCategory] || { min: 0, max: 0 };
           const hPath = max === min ? 0 : (item["HHI졸업후"] - min) / (max - min);
@@ -2152,6 +2254,15 @@
           );
         }
 
+        const nonZeroHhiCount = pathTable.filter((row) => row["HHI졸업후"] > 0).length;
+        if (nonZeroHhiCount === 0) {
+          const sampleColumns = listRecordColumnNames(pathSourceRecords).slice(0, 20).join(", ");
+          throw new Error(
+            "HHI졸업후가 모두 0입니다. U·EM·EH 등 수치 열이 올바른지 확인해주세요. " +
+            `인식된 열(일부): ${sampleColumns}`
+          );
+        }
+
         const { mergedRecords, matchedCount } = mergeStep6WithBase(baseRecords, pathTable);
         const resultData = recordsToData(mergedRecords);
 
@@ -2168,7 +2279,7 @@
         exportRecordsXlsx(mergedRecords, "6단계 결과.xlsx");
         setStatus(
           "status-step6",
-          `완료: ${mergedRecords.length}행 다운로드, ${matchedCount}행 HHI졸업후·H_path 병합`,
+          `완료: ${mergedRecords.length}행 다운로드, ${matchedCount}행 병합 (HHI>0: ${nonZeroHhiCount}교)`,
           "ok"
         );
       } catch (error) {
