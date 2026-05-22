@@ -646,16 +646,15 @@
 
       <div class="card">
         <h2>6-3. P_special 계산하기</h2>
-        <p class="hint"><strong>0) 6-2단계 결과 파일을 업로드하세요.</strong></p>
+        <p class="hint"><strong>0) 5단계 결과 파일을 업로드하세요.</strong></p>
         <div class="dropzone" id="drop-step6-3-base" tabindex="0">
           <input type="file" id="file-step6-3-base" accept=".xls,.xlsx,.json,.csv" />
-          <strong>6-2단계 결과 파일 업로드</strong>
-          <span>6-2단계 결과.xlsx 또는 .json, .csv</span>
+          <strong>5단계 결과 파일 업로드</strong>
+          <span>5단계 결과.xlsx 또는 .json, .csv</span>
         </div>
         <p class="status" id="status-step6-3-base"></p>
 
         <p class="hint"><strong>1) 일반학교의 특수교육대상자 수 파일을 다운로드하세요.</strong></p>
-        <p class="hint"><(출처:https://www.edmgr.kr/ot/dim/dmm/bm/ot_dim_dmmbm02_m01?dtmcId=DA002024000001313000&callPage=/ot/cof/cof/mn/dtcfSearch)</p>
         <div class="btn-row">
           <a
             class="download-link"
@@ -682,6 +681,26 @@
         <p class="status" id="status-step6-3"></p>
         <div class="table-wrap" id="preview-step6-3-wrap" hidden>
           <table id="preview-step6-3"></table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>6-4. I_SCU 계산하기</h2>
+        <p class="hint"><strong>1) 6-3단계 결과 파일을 업로드하세요.</strong></p>
+        <p class="hint">파일에 <strong>다문화학생비율</strong>, <strong>청소년 교육급여자 비율</strong>, <strong>P_special</strong> 열이 있어야 합니다.</p>
+        <div class="dropzone" id="drop-step6-4-base" tabindex="0">
+          <input type="file" id="file-step6-4-base" accept=".xls,.xlsx,.json,.csv" />
+          <strong>6-3단계 결과 파일 업로드</strong>
+          <span>6-3단계 결과.xlsx 또는 .json, .csv</span>
+        </div>
+        <p class="status" id="status-step6-4-base"></p>
+
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step6-4-process">6-4 I_SCU 계산 후 XLSX 다운로드</button>
+        </div>
+        <p class="status" id="status-step6-4"></p>
+        <div class="table-wrap" id="preview-step6-4-wrap" hidden>
+          <table id="preview-step6-4"></table>
         </div>
       </div>
     </section>
@@ -738,6 +757,9 @@
     let step62YouthFile = null;
     let step63BaseFile = null;
     let step63SpecialFile = null;
+    let step64BaseFile = null;
+    const STEP64_ISCU_RATE_HEADERS = ["다문화학생비율", "청소년 교육급여자 비율", "P_special"];
+    const STEP64_SIGUNGU_HEADERS = ["시군구명", "시군 구명"];
     const STEP63_SPECIAL_SUM_COLS = ["S", "V", "AE", "AH", "AK"];
     const STEP63_OPEN_ID_HEADERS = ["개방ID", "개방 ID", "개방id"];
     const STEP63_REGION_HEADERS = ["시군구명", "시군 구명"];
@@ -2175,7 +2197,7 @@
         const totalStudents = toNumber(findRecordValue(record, "전체학생수 계"));
         const specialCount = toNumber(record["특수교육대상자수"]);
         const pSpecial =
-          totalStudents > 0 ? Number((specialCount / totalStudents).toFixed(6)) : "";
+          totalStudents > 0 ? Number(((100 * specialCount) / totalStudents).toFixed(6)) : "";
         return { ...record, P_special: pSpecial };
       });
     }
@@ -2213,6 +2235,74 @@
       });
 
       return { mergedRecords: filledRecords, avgP, filledCount };
+    }
+
+    function normalizeStep64RegionValue(value) {
+      return normalize(value).replace(/^대구광역시\s*/, "");
+    }
+
+    function getStep64RegionParts(record) {
+      const jiyok = normalizeStep64RegionValue(findRecordValue(record, "지역"));
+      const sigungu = normalizeStep64RegionValue(
+        findRecordValue(record, "시군구명") || getValueByHeaderAliases(record, STEP64_SIGUNGU_HEADERS)
+      );
+      return { jiyok, sigungu };
+    }
+
+    function mergeStep64RegionColumns(record) {
+      const { jiyok, sigungu } = getStep64RegionParts(record);
+      let mergedRegion = "";
+
+      if (jiyok && sigungu) {
+        mergedRegion = jiyok === sigungu ? jiyok : "?";
+      } else if (jiyok) {
+        mergedRegion = jiyok;
+      } else if (sigungu) {
+        mergedRegion = sigungu;
+      }
+
+      const out = { ...record, 지역: mergedRegion };
+      delete out["시군구명"];
+      return out;
+    }
+
+    function getStep64RateNumber(record, headerName) {
+      const value = findRecordValue(record, headerName);
+      if (isStep63MetricEmpty(value)) return null;
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function recordsHaveStep64RateColumns(records) {
+      return STEP64_ISCU_RATE_HEADERS.every((header) =>
+        records.some((row) => findRecordKey(row, header) && getStep64RateNumber(row, header) !== null)
+      );
+    }
+
+    function applyStep64IScuAndRegion(records) {
+      let computedCount = 0;
+      let mismatchRegionCount = 0;
+
+      const outputRecords = records.map((record) => {
+        const multi = getStep64RateNumber(record, "다문화학생비율");
+        const benefit = getStep64RateNumber(record, "청소년 교육급여자 비율");
+        const pSpecial = getStep64RateNumber(record, "P_special");
+
+        const merged = mergeStep64RegionColumns(record);
+        const { jiyok, sigungu } = getStep64RegionParts(record);
+        if (jiyok && sigungu && jiyok !== sigungu) mismatchRegionCount += 1;
+
+        if (multi === null || benefit === null || pSpecial === null) {
+          merged.I_SCU = "";
+          return merged;
+        }
+
+        merged.I_SCU = Number(((100 - multi) + (100 - benefit) + (100 - pSpecial)) / 3).toFixed(6);
+        computedCount += 1;
+        return merged;
+      });
+
+      return { outputRecords, computedCount, mismatchRegionCount };
     }
 
     function analyzeStep4Sheet(sheetName, worksheet) {
@@ -2664,6 +2754,52 @@
         );
       } catch (error) {
         setStatus("status-step6-3", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step6-4-base", "file-step6-4-base", (files) => {
+      step64BaseFile = files[0];
+      setStatus("status-step6-4-base", `${step64BaseFile.name} 선택됨`, "ok");
+    });
+
+    document.getElementById("btn-step6-4-process").addEventListener("click", async () => {
+      if (!step64BaseFile) {
+        alert("6-3단계 결과 파일을 선택해주세요.");
+        return;
+      }
+
+      try {
+        setStatus("status-step6-4", "6-4 I_SCU 계산 중...");
+        const baseRecords = (await loadFile(step64BaseFile)).records;
+        if (!baseRecords.length) throw new Error("6-3단계 결과 파일에 데이터가 없습니다.");
+
+        if (!recordsHaveStep64RateColumns(baseRecords)) {
+          throw new Error(
+            "6-3단계 결과 파일에 '다문화학생비율', '청소년 교육급여자 비율', 'P_special' 열(및 유효한 값)이 필요합니다."
+          );
+        }
+
+        const { outputRecords, computedCount, mismatchRegionCount } = applyStep64IScuAndRegion(baseRecords);
+        const resultData = recordsToData(outputRecords);
+
+        renderTable(
+          document.getElementById("preview-step6-4"),
+          document.getElementById("preview-step6-4-wrap"),
+          {
+            headers: resultData.columns,
+            rows: resultData.records.map((record) =>
+              resultData.columns.map((col) => record[col] ?? "")
+            )
+          }
+        );
+        exportRecordsXlsx(outputRecords, "6-4단계 결과.xlsx");
+        setStatus(
+          "status-step6-4",
+          `완료: ${outputRecords.length}행 다운로드, I_SCU ${computedCount}행 · 지역 불일치(?) ${mismatchRegionCount}행`,
+          "ok"
+        );
+      } catch (error) {
+        setStatus("status-step6-4", "오류: " + error.message, "error");
       }
     });
 
