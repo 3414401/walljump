@@ -625,7 +625,7 @@
         <div class="dropzone" id="drop-step6-path" tabindex="0" style="margin-top:1rem">
           <input type="file" id="file-step6-path" accept=".xls,.xlsx,.json,.csv" />
           <strong>졸업 후 경로 데이터 파일 업로드</strong>
-          <span>학제유형, 개방ID, 학교명 및 관련 수치 열 필요</span>
+          <span>학제유형명, 개방ID, 학교명 및 관련 수치 열 필요</span>
         </div>
         <p class="status" id="status-step6-path"></p>
 
@@ -690,6 +690,8 @@
     let step6BaseFile = null;
     let step6PathFile = null;
     const STEP6_SCHOOL_TYPE_CATEGORIES = ["초등학교", "중학교", "고등학교"];
+    const STEP6_SCHOOL_TYPE_HEADERS = ["학제유형명", "학제유형", "학제 유형"];
+    const STEP6_SCHOOL_NAME_HEADERS = ["학교명", "학교 명"];
 
     document.querySelectorAll("nav.tabs button").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1558,6 +1560,107 @@
       return `${Math.round(value).toLocaleString("ko-KR")}원`;
     }
 
+    function normalizeHeaderKey(header) {
+      return String(header ?? "").replace(/\s+/g, "").trim();
+    }
+
+    function headerMatchesAny(header, aliases) {
+      const normalized = normalizeHeaderKey(header);
+      return aliases.some((alias) => normalizeHeaderKey(alias) === normalized);
+    }
+
+    function getValueByHeaderAliases(row, aliases) {
+      if (!row) return "";
+      for (const alias of aliases) {
+        const value = getValueByHeaderName(row, alias);
+        if (value !== "") return value;
+      }
+      const keys = Object.keys(row);
+      for (const alias of aliases) {
+        const key = keys.find((header) => normalizeHeaderKey(header) === normalizeHeaderKey(alias));
+        if (key !== undefined && String(row[key]).trim() !== "") return row[key];
+      }
+      return "";
+    }
+
+    function getStep6SchoolTypeValue(row) {
+      return getValueByHeaderAliases(row, STEP6_SCHOOL_TYPE_HEADERS);
+    }
+
+    function getStep6SchoolNameValue(row) {
+      return getValueByHeaderAliases(row, STEP6_SCHOOL_NAME_HEADERS);
+    }
+
+    function step6HeaderKeyForColumn(header, index) {
+      const trimmed = String(header ?? "").trim();
+      if (trimmed) return trimmed;
+      return index === 0 ? "__EMPTY" : `__EMPTY_${index}`;
+    }
+
+    function listRecordColumnNames(records) {
+      const set = new Set();
+      (records || []).forEach((row) => {
+        Object.keys(row || {}).forEach((key) => {
+          const trimmed = String(key).trim();
+          if (trimmed) set.add(trimmed);
+        });
+      });
+      return [...set];
+    }
+
+    function recordsHaveStep6Columns(records) {
+      if (!records || !records.length) return false;
+      const hasSchoolType = records.some((row) => normalizeStep6SchoolType(getStep6SchoolTypeValue(row)));
+      const hasSchoolName = records.some((row) => normalize(getStep6SchoolNameValue(row)));
+      return hasSchoolType && hasSchoolName;
+    }
+
+    function recordsFromStep6SheetRows(rows) {
+      const nonEmptyRows = rows.filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
+
+      for (let headerIndex = 0; headerIndex < Math.min(nonEmptyRows.length, 20); headerIndex += 1) {
+        const headers = nonEmptyRows[headerIndex].map((cell) => String(cell ?? "").trim());
+        const hasSchoolTypeHeader = headers.some((header) => headerMatchesAny(header, STEP6_SCHOOL_TYPE_HEADERS));
+        const hasSchoolNameHeader = headers.some((header) => headerMatchesAny(header, STEP6_SCHOOL_NAME_HEADERS));
+        if (!hasSchoolTypeHeader || !hasSchoolNameHeader) continue;
+
+        return nonEmptyRows.slice(headerIndex + 1).map((row) => {
+          const record = {};
+          headers.forEach((header, index) => {
+            record[step6HeaderKeyForColumn(header, index)] = row[index] ?? "";
+          });
+          return record;
+        }).filter((record) => Object.values(record).some((value) => String(value).trim() !== ""));
+      }
+
+      return [];
+    }
+
+    async function loadStep6PathRecords(file) {
+      const name = (file.name || "").toLowerCase();
+      let records = [];
+
+      if (name.endsWith(".xls") || name.endsWith(".xlsx")) {
+        const workbook = await loadWorkbook(file);
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+        records = recordsFromStep6SheetRows(rows);
+      }
+
+      if (!recordsHaveStep6Columns(records)) {
+        records = (await loadFile(file)).records;
+      }
+
+      if (!recordsHaveStep6Columns(records)) {
+        const columns = listRecordColumnNames(records).join(", ") || "(열 없음)";
+        throw new Error(
+          `졸업 후 경로 데이터: '학제유형명'과 '학교명' 열이 필요합니다. 파일에 있는 열: ${columns}`
+        );
+      }
+
+      return records;
+    }
+
     function normalizeStep6SchoolType(value) {
       const schoolType = normalize(value);
       if (!schoolType) return "";
@@ -1655,9 +1758,7 @@
 
     function buildStep6PathTable(records) {
       const rowsWithHhi = records.map((row) => {
-        const schoolTypeCategory = normalizeStep6SchoolType(
-          getValueByHeaderName(row, "학제유형") || getValueByHeaderName(row, "학제 유형")
-        );
+        const schoolTypeCategory = normalizeStep6SchoolType(getStep6SchoolTypeValue(row));
         const hhi = computeStep6HhiGraduate(row, schoolTypeCategory);
 
         return {
@@ -1675,8 +1776,8 @@
           const hPath = max === min ? 0 : (item["HHI졸업후"] - min) / (max - min);
 
           return {
-            개방ID: getValueByHeaderName(item.row, "개방ID"),
-            학교명: normalize(getValueByHeaderName(item.row, "학교명")),
+            개방ID: getValueByHeaderAliases(item.row, ["개방ID", "개방 ID"]),
+            학교명: normalize(getStep6SchoolNameValue(item.row)),
             "HHI졸업후": item["HHI졸업후"],
             H_path: Number(hPath.toFixed(6))
           };
@@ -2040,22 +2141,15 @@
       try {
         setStatus("status-step6", "6단계 계산 중...");
         const baseRecords = (await loadFile(step6BaseFile)).records;
-        const pathSourceRecords = (await loadFile(step6PathFile)).records;
+        const pathSourceRecords = await loadStep6PathRecords(step6PathFile);
 
         if (!baseRecords.length) throw new Error("5-2단계 결과 파일에 데이터가 없습니다.");
-        if (!pathSourceRecords.length) throw new Error("졸업 후 경로 데이터 파일에 데이터가 없습니다.");
-
-        const hasSchoolType = pathSourceRecords.some((row) =>
-          normalizeStep6SchoolType(getValueByHeaderName(row, "학제유형") || getValueByHeaderName(row, "학제 유형"))
-        );
-        const hasSchoolName = pathSourceRecords.some((row) => getValueByHeaderName(row, "학교명") !== "");
-        if (!hasSchoolType || !hasSchoolName) {
-          throw new Error("졸업 후 경로 데이터 파일에 '학제유형'(또는 '학제 유형')과 '학교명' 열이 필요합니다.");
-        }
 
         const pathTable = buildStep6PathTable(pathSourceRecords);
         if (!pathTable.length) {
-          throw new Error("HHI졸업후·H_path를 계산할 수 있는 행이 없습니다. 학제유형과 수치 열을 확인해주세요.");
+          throw new Error(
+            "HHI졸업후·H_path를 계산할 수 있는 행이 없습니다. 학제유형명과 수치 열(U, EM 등)을 확인해주세요."
+          );
         }
 
         const { mergedRecords, matchedCount } = mergeStep6WithBase(baseRecords, pathTable);
