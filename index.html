@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>다차원 사회·학업 동질성 지수 계산기</title>
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <title>다차원 사회·학업 동질성 지수(SAHI) 계산기</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
   <style>
     :root {
       --bg: #f4f6f9;
@@ -209,6 +209,15 @@
       text-overflow: ellipsis;
     }
 
+    th.hm-highlight,
+    td.hm-highlight {
+      background: #fef08a;
+    }
+
+    th.hm-highlight {
+      background: #fde047;
+    }
+
     th {
       background: #eef2f7;
       position: sticky;
@@ -257,14 +266,19 @@
 </head>
 <body>
   <header>
-    <h1>다차원 사회·학업 동질성 지수 계산기</h1>
-    <p>1단계 → 2단계 → 3-1 → 3-2 순서로 파일을 처리합니다.</p>
+    <h1>다차원 사회·학업 동질성 지수(SAHI) 계산기</h1>
+    <p>1단계 → 2단계 → 3-1 → 3-2 → 4단계 → 5단계 → 6단계 → 7단계 → 8단계 순서로 파일을 처리합니다.</p>
   </header>
 
   <nav class="tabs" role="tablist">
     <button type="button" class="active" data-page="step1" role="tab" aria-selected="true">1단계</button>
     <button type="button" data-page="step2" role="tab" aria-selected="false">2단계</button>
     <button type="button" data-page="step3" role="tab" aria-selected="false">3단계</button>
+    <button type="button" data-page="step4" role="tab" aria-selected="false">4단계</button>
+    <button type="button" data-page="step5" role="tab" aria-selected="false">5단계</button>
+    <button type="button" data-page="step6" role="tab" aria-selected="false">6단계</button>
+    <button type="button" data-page="step7" role="tab" aria-selected="false">7단계</button>
+    <button type="button" data-page="step8" role="tab" aria-selected="false">8단계</button>
   </nav>
 
   <main>
@@ -273,8 +287,17 @@
         <h2>1단계</h2>
         <p class="hint">
           <strong>전국학교학구도연계정보표준데이터.json</strong>에서 학구ID, 학교ID, 학교명, 시도교육청명을 추출합니다.
-          GitHub에는 이 JSON 파일도 함께 올려야 합니다.
+          웹 서버(GitHub Pages 등)로 열면 자동으로 불러오고, <code>index.html</code>을 PC에서 직접 더블클릭해 연 경우에는 아래에서 JSON을 직접 업로드해야 합니다.
         </p>
+        <div class="card" id="card-step1-upload" hidden style="margin-top:1rem;margin-bottom:0;box-shadow:none;border-style:dashed">
+          <h2>1단계 JSON 직접 업로드</h2>
+          <p class="hint">자동 로드가 실패했을 때 같은 폴더의 <strong>전국학교학구도연계정보표준데이터.json</strong>을 선택하세요.</p>
+          <div class="dropzone" id="drop-step1-json" tabindex="0">
+            <input type="file" id="file-step1-json-upload" accept=".json,application/json" />
+            <strong>전국학교학구도연계정보표준데이터.json 업로드</strong>
+            <span>약 6MB · .json</span>
+          </div>
+        </div>
         <ul class="steps">
           <li>시도교육청명을 선택합니다.</li>
           <li>1단계 결과 파일을 다운로드합니다.</li>
@@ -327,7 +350,7 @@
           <span>1단계 계산 결과.xlsx 또는 1단계 계산 결과.json</span>
         </div>
         <p class="status" id="status-step2-base"></p>
-        
+
         <div class="dropzone" id="drop-step2-new" tabindex="0" style="margin-top:0.75rem">
           <input type="file" id="file-step2-new" accept=".json,.xls,.xlsx,.csv" />
           <strong>'전·출입 및 학업중단 학생 수'파일 업로드</strong>
@@ -338,8 +361,8 @@
       </div>
 
       <div class="card" id="card-step2-cols" hidden>
-        <h2>유지할 열 선택</h2>
-        <p class="hint">필수 열은 자동으로 포함됩니다. 병합 기준은 기본적으로 학교명입니다.</p>
+        <h2>추가적으로 열에 포함하고 싶은 정보가 있다면 체크하세요.</h2>
+        <p class="hint"><strong>기본 기능만 원한다면 아무것도 체크하지 마세요. </strong>.</p>
         <div class="btn-row" style="margin-top:0;margin-bottom:0.75rem">
           <button type="button" class="secondary" id="btn-step2-select-all">전체 선택</button>
           <button type="button" class="secondary" id="btn-step2-select-none">전체 해제</button>
@@ -347,7 +370,7 @@
         <div class="cols-grid" id="step2-cols-grid"></div>
 
         <div class="field-row" style="margin-top:1rem">
-          <label for="step2-merge-key">병합 기준 열</label>
+          <label for="step2-merge-key">병합 기준 열('학교명'선택하세요.)</label>
           <select id="step2-merge-key"></select>
         </div>
         <div class="field-row">
@@ -373,14 +396,15 @@
     <section id="page-step3" class="page" role="tabpanel">
       <div class="notice">
         3단계는 3-1을 먼저 실행한 뒤, 다운로드된 <strong>3-1단계 결과.xlsx</strong>를 3-2에 업로드하면 됩니다.
-        3-1의 최근 10년 설립 학교 목록은 GitHub Actions가 <strong>data/sheet-data.json</strong>으로 자동 갱신합니다.
       </div>
 
       <div class="card">
         <h2>3-1. 신설 학교 전입률 과대추정치 조정</h2>
         <p class="hint">
-          2단계 결과 파일을 올리면, GitHub에 저장된 최근 10년 설립 학교 목록과 학교명 기준으로 병합합니다.
-          학교개교일자가 <strong>20160101 이상</strong>이면 전입학생수 계, 전출학생수 계를 0으로 보정합니다.
+          '2단계 결과 파일'을 올리면, GitHub에 저장된 최근 10년 설립 학교 목록을 찾아냅니다. (자동 갱신됨)
+          (출처: https://www.edmgr.kr/ot/dim/dmm/bm/ot_dim_dmmbm02_m01?dtmcId=DA002024000003540000&callPage=/ot/cof/cof/mn/dtcfSearch)
+          최근 10년 설립 학교는 전학생을 대거 받으므로, 순전입률 계산 시 과대 추정 됩니다.
+          <strong> 따라서 학교개교일자가 20160101 이상이면 전입학생수 계, 전출학생수 계를 0으로 보정합니다. </strong>
         </p>
 
         <div class="dropzone" id="drop-step3-1" tabindex="0">
@@ -412,6 +436,351 @@
         <p class="status" id="status-step3-2"></p>
       </div>
     </section>
+
+    <section id="page-step4" class="page" role="tabpanel">
+      <div class="notice">
+        4단계는 구별 소비 획일화 지수를 계산하는 단계입니다. 4-2는 우선 4-1 결과물 업로드까지만 준비되어 있습니다.
+      </div>
+
+      <div class="card">
+        <h2>4-1. 구별 소비 획일화 지수 계산</h2>
+        <p class="hint"><strong>
+          1) 아래 버튼을 눌러 한국조폐공사 지역사랑상품권 가맹점 업종별 결제정보를 다운받으세요.</strong>
+        </p>
+        <div class="btn-row">
+          <a
+            class="download-link"
+            href="https://docs.google.com/spreadsheets/d/1-6Z5u0tSGcNnUhSDVx4tLLuqP1uu-2za/export?format=xlsx"
+            target="_blank"
+            rel="noopener"
+          >
+            다운받기: 한국조폐공사_지역사랑상품권_가맹점_업종별_결제정보
+          </a>
+          <p class="hint">
+          데이터 출처: https://www.data.go.kr/data/15149767/openapi.do#/API%20%EB%AA%A9%EB%A1%9D/paymentsV1
+        </p>
+          <p class="hint">
+          <strong>2) 다운 받은 '한국조폐공사 지역사랑상품권 가맹점 업종별 결제정보'를 업로드하세요.</strong>
+        </p>
+        <p class="hint">
+          <strong>3) 시군구별 HHI 방식의 동질화 지수를 계산합니다. 음식/주점 업종은 제외하고, 빠진 구·군은 기존 동질화 지수 평균값으로 채웁니다.</strong>
+        </p>
+        </div>
+
+        <div class="dropzone" id="drop-step4-1" tabindex="0" style="margin-top:1rem">
+          <input type="file" id="file-step4-1" accept=".xls,.xlsx" />
+          <strong>한국조폐공사_지역사랑상품권_가맹점_업종별_결제정보 파일 업로드</strong>
+          <span>.xlsx 또는 .xls</span>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step4-1-process">시군구별 Hppc게산하기</button>
+        </div>
+        <p class="status" id="status-step4-1"></p>
+        <div class="table-wrap" id="preview-step4-1-wrap" hidden>
+          <table id="preview-step4-1"></table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>4-2. 동질화 지수 병합</h2>
+        <p class="hint">
+          3-2단계 결과 파일에 4-1단계의 소비 동질성(동질화 지수), 1위 업종, 1위 비중을 지역 기준으로 병합합니다.
+        </p>
+        <div class="dropzone" id="drop-step4-2-file1" tabindex="0">
+          <input type="file" id="file-step4-2-file1" accept=".xls,.xlsx,.json,.csv" />
+          <strong>3-2단계 결과 파일을 업로드해주세요.</strong>
+          <span>3-2단계 결과.xlsx 또는 .json, .csv</span>
+        </div>
+        <p class="status" id="status-step4-2-file1"></p>
+
+        <div class="dropzone" id="drop-step4-2-file2" tabindex="0" style="margin-top:0.75rem">
+          <input type="file" id="file-step4-2-file2" accept=".xls,.xlsx,.json,.csv" />
+          <strong>4-1단계 결과 파일을 업로드해주세요.</strong>
+          <span>4-1단계 결과.xlsx 또는 .json, .csv</span>
+        </div>
+        <p class="status" id="status-step4-2-file2"></p>
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step4-2-process">4-2 병합 후 XLSX 다운로드</button>
+        </div>
+        <p class="status" id="status-step4-2"></p>
+        <div class="table-wrap" id="preview-step4-2-wrap" hidden>
+          <table id="preview-step4-2"></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-step5" class="page" role="tabpanel">
+      <div class="card">
+        <h2>5단계. 졸업 후 경로(H_path) 병합</h2>
+        <p class="hint"><strong>1) 4-2단계 결과 파일을 업로드하세요.</strong></p>
+        <div class="dropzone" id="drop-step5-base" tabindex="0">
+          <input type="file" id="file-step5-base" accept=".xls,.xlsx,.json,.csv" />
+          <strong>4-2단계 결과 파일 업로드</strong>
+          <span>4-2단계 결과.xlsx 또는 .json, .csv</span>
+        </div>
+        <p class="status" id="status-step5-base"></p>
+
+        <p class="hint"><strong>2) 졸업 후 경로 데이터를 다운로드하세요.</strong> (초등학교·중학교·고등학교·일반고·특성화고)</p>
+        <p class="hint">(출처: https://www.edmgr.kr/ot/dim/dmm/bm/ot_dim_dmmbm02_m01?dtmcId=DA002024000002264000&callPage=/ot/cof/cof/mn/dtcfSearch)</p>
+        <div class="btn-row">
+          <a
+            class="download-link"
+            href="https://docs.google.com/spreadsheets/d/1oVFCX2G7kAJTTBAHSdd2FW-5hCS2SAU2/export?format=xlsx"
+            target="_blank"
+            rel="noopener"
+          >
+            졸업 후 경로 데이터 다운받기
+          </a>
+        </div>
+
+        <p class="hint"><strong>3) 다운로드한 파일을 업로드하세요.</strong></p>
+        <div class="dropzone" id="drop-step5-path" tabindex="0" style="margin-top:1rem">
+          <input type="file" id="file-step5-path" accept=".xls,.xlsx,.json,.csv" />
+          <strong>졸업 후 경로 데이터 파일 업로드</strong>
+          <span>학제유형명·학교명(열 이름) / 초·중은 U·EM 등 엑셀 열 위치로 계산</span>
+        </div>
+        <p class="status" id="status-step5-path"></p>
+
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step5-process">5단계 계산 후 XLSX 다운로드</button>
+        </div>
+        <p class="hint" style="margin-top:0.5rem">(지표가 공개되지 않은 경우 평균값 적용.)</p>
+        <p class="status" id="status-step5"></p>
+        <div class="table-wrap" id="preview-step5-wrap" hidden>
+          <table id="preview-step5"></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-step6" class="page" role="tabpanel">
+      <div class="card">
+        <h2>6단계. 4-2단계 결과 준비</h2>
+        <p class="hint">4-2단계 결과 파일을 올리면 전입학생수 계, 전출학생수 계, 순전입률 열은 자동으로 제거됩니다.</p>
+        <div class="dropzone" id="drop-step6-base" tabindex="0">
+          <input type="file" id="file-step6-base" accept=".xls,.xlsx,.json,.csv" />
+          <strong>4-2단계 결과 파일 업로드</strong>
+          <span>4-2단계 결과.xlsx 또는 .json, .csv</span>
+        </div>
+        <p class="status" id="status-step6-base"></p>
+      </div>
+
+      <div class="card">
+        <h2>6-1. P_multi 계산하기</h2>
+        <p class="hint"><strong>1) 아래 버튼으로 다문화 학생 비율 데이터 파일을 다운로드하세요.</strong></p>
+        <div class="btn-row">
+          <a
+            class="download-link"
+            href="https://docs.google.com/spreadsheets/d/1VLyM5KrYR1r_ESw_avrk4KEVVEmk-9CQ/export?format=xlsx"
+            target="_blank"
+            rel="noopener"
+          >
+            다문화 학생 비율 데이터 다운로드
+          </a>
+        </div>
+        <p class="hint"><strong>2) 다운로드한 파일을 업로드한 뒤 P_multi 계산을 실행하세요.</strong></p>
+        <p class="hint">(출처: https://www.dge.go.kr/main/ad/ed/view/selectEdcStatsView.do?mi=5793)</p>
+        <div class="dropzone" id="drop-step6-1" tabindex="0" style="margin-top:1rem">
+          <input type="file" id="file-step6-1" accept=".xls,.xlsx,.json,.csv" />
+          <strong>다문화 학생 비율 데이터 파일 업로드</strong>
+          <span>.xlsx, .xls, .json, .csv</span>
+        </div>
+        <p class="status" id="status-step6-1-upload"></p>
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step6-1-process">6-1 P_multi 계산 후 XLSX 다운로드</button>
+        </div>
+        <p class="status" id="status-step6-1"></p>
+        <div class="table-wrap" id="preview-step6-1-wrap" hidden>
+          <table id="preview-step6-1"></table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>6-2. P_benefit 계산하기</h2>
+        <p class="hint"><strong>0) 6-1단계 결과 파일을 업로드하세요.</strong></p>
+        <div class="dropzone" id="drop-step6-2-base" tabindex="0">
+          <input type="file" id="file-step6-2-base" accept=".xls,.xlsx,.json,.csv" />
+          <strong>6-1단계 결과 파일 업로드</strong>
+          <span>6-1단계 결과.xlsx 또는 .json, .csv</span>
+        </div>
+        <p class="status" id="status-step6-2-base"></p>
+
+        <p class="hint"><strong>1) 10~24세 교육급여자수 파일을 다운로드하세요.</strong></p>
+        <p class="hint">(출처:https://www.data.go.kr/data/15047723/fileData.do)</p>
+        <div class="btn-row">
+          <a
+            class="download-link"
+            href="https://docs.google.com/spreadsheets/d/1FfC3CRmW7E1hjAbS1I_w7E1a4ADQgzs5/export?format=xlsx"
+            target="_blank"
+            rel="noopener"
+          >
+            10~24세 교육급여자수 다운받기
+          </a>
+        </div>
+
+        <p class="hint"><strong>2) 다운로드한 파일을 업로드하세요.</strong></p>
+        <div class="dropzone" id="drop-step6-2-benefit" tabindex="0" style="margin-top:1rem">
+          <input type="file" id="file-step6-2-benefit" accept=".xls,.xlsx,.json,.csv" />
+          <strong>10~24세 교육급여자수 파일 업로드</strong>
+          <span>지역, 수급자수 열 필요</span>
+        </div>
+        <p class="status" id="status-step6-2-benefit"></p>
+
+        <p class="hint"><strong>3) 청소년 수 파일을 다운로드하세요.</strong></p>
+        <p class="hint">(출처: https://www.daegu.go.kr/woman/index.do?menu_id=00000578)</p>
+        <div class="btn-row">
+          <a
+            class="download-link"
+            href="https://docs.google.com/spreadsheets/d/1-vS9fSIq9XuxzA9c6g7nMopv68_4XCX1/export?format=xlsx"
+            target="_blank"
+            rel="noopener"
+          >
+            청소년 수 다운받기
+          </a>
+        </div>
+
+        <p class="hint"><strong>4) 다운로드한 청소년 수 파일을 업로드하세요.</strong></p>
+        <div class="dropzone" id="drop-step6-2-youth" tabindex="0" style="margin-top:1rem">
+          <input type="file" id="file-step6-2-youth" accept=".xls,.xlsx,.json,.csv" />
+          <strong>청소년 수 파일 업로드</strong>
+          <span>지역, 청소년 인구수(또는 9~24세 인구수) 열 필요</span>
+        </div>
+        <p class="status" id="status-step6-2-youth"></p>
+
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step6-2-process">6-2 P_benefit 계산 후 XLSX 다운로드</button>
+        </div>
+        <p class="status" id="status-step6-2"></p>
+        <div class="table-wrap" id="preview-step6-2-wrap" hidden>
+          <table id="preview-step6-2"></table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>6-3. P_special 계산하기</h2>
+        <p class="hint"><strong>0) 5단계 결과 파일을 업로드하세요.</strong></p>
+        <div class="dropzone" id="drop-step6-3-base" tabindex="0">
+          <input type="file" id="file-step6-3-base" accept=".xls,.xlsx,.json,.csv" />
+          <strong>5단계 결과 파일 업로드</strong>
+          <span>5단계 결과.xlsx 또는 .json, .csv</span>
+        </div>
+        <p class="status" id="status-step6-3-base"></p>
+
+        <p class="hint"><strong>1) 일반학교의 특수교육대상자 수 파일을 다운로드하세요.</strong></p>
+        <div class="btn-row">
+          <a
+            class="download-link"
+            href="https://docs.google.com/spreadsheets/d/1IczvNPjLp32Hk0fjV4JYmbMGW3mLNo-C/export?format=xlsx"
+            target="_blank"
+            rel="noopener"
+          >
+            일반학교의 특수교육대상자 수 다운받기
+          </a>
+        </div>
+
+        <p class="hint"><strong>2) 다운로드한 파일을 업로드하세요.</strong> (S·V·AE·AH·AK 열 위치로 특수교육대상자수 합산)</p>
+        <div class="dropzone" id="drop-step6-3-special" tabindex="0" style="margin-top:1rem">
+          <input type="file" id="file-step6-3-special" accept=".xls,.xlsx" />
+          <strong>특수교육대상자 수 파일 업로드</strong>
+          <span>개방ID·시군구명(열 이름) / .xlsx, .xls</span>
+        </div>
+        <p class="status" id="status-step6-3-special"></p>
+
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step6-3-process">6-3 P_special 계산 후 XLSX 다운로드</button>
+        </div>
+        <p class="hint" style="margin-top:0.5rem">(지표가 공개되지 않은 학교의 경우 평균값으로 대체.)</p>
+        <p class="status" id="status-step6-3"></p>
+        <div class="table-wrap" id="preview-step6-3-wrap" hidden>
+          <table id="preview-step6-3"></table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>6-4. I_SCU 계산하기</h2>
+        <p class="hint"><strong>1) 6-3단계 결과 파일을 업로드하세요.</strong></p>
+        <p class="hint">파일에 <strong>다문화학생비율</strong>, <strong>청소년 교육급여자 비율</strong>, <strong>P_special</strong> 열이 있어야 합니다.</p>
+        <div class="dropzone" id="drop-step6-4-base" tabindex="0">
+          <input type="file" id="file-step6-4-base" accept=".xls,.xlsx,.json,.csv" />
+          <strong>6-3단계 결과 파일 업로드</strong>
+          <span>6-3단계 결과.xlsx 또는 .json, .csv</span>
+        </div>
+        <p class="status" id="status-step6-4-base"></p>
+
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step6-4-process">6-4 I_SCU 계산 후 XLSX 다운로드</button>
+        </div>
+        <p class="status" id="status-step6-4"></p>
+        <div class="table-wrap" id="preview-step6-4-wrap" hidden>
+          <table id="preview-step6-4"></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-step7" class="page" role="tabpanel">
+      <div class="card">
+        <h2>7-1. 6-4단계 결과 업로드</h2>
+        <p class="hint"><strong>6-4단계 결과 파일을 업로드하세요.</strong></p>
+        <div class="dropzone" id="drop-step7-1-base" tabindex="0">
+          <input type="file" id="file-step7-1-base" accept=".xls,.xlsx,.json,.csv" />
+          <strong>6-4단계 결과 파일 업로드</strong>
+          <span>6-4단계 결과.xlsx 또는 .json, .csv</span>
+        </div>
+        <p class="status" id="status-step7-1-base"></p>
+      </div>
+
+      <div class="card">
+        <h2>7-2. H_job 병합</h2>
+        <p class="hint"><strong>1) 아래 버튼으로 직업·소득 분포 데이터를 다운로드하세요.</strong></p>
+        <div class="btn-row">
+          <a
+            class="download-link"
+            href="https://docs.google.com/spreadsheets/d/1os2uK6KAy0HYerxZrhuYd4dHf_jHaAza/export?format=xlsx"
+            target="_blank"
+            rel="noopener"
+          >
+            직업·소득 분포 데이터 다운받기
+          </a>
+        </div>
+
+        <p class="hint"><strong>2) 다운로드한 파일을 업로드한 뒤 H_job 병합을 실행하세요.</strong></p>
+        <div class="dropzone" id="drop-step7-2-job" tabindex="0" style="margin-top:1rem">
+          <input type="file" id="file-step7-2-job" accept=".xls,.xlsx,.json,.csv" />
+          <strong>직업·소득 분포 데이터 파일 업로드</strong>
+          <span>SIGNGU_NM → 지역, H_job 계산</span>
+        </div>
+        <p class="status" id="status-step7-2-job"></p>
+
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step7-2-process">7-2 H_job 병합 후 XLSX 다운로드</button>
+        </div>
+        <p class="status" id="status-step7-2"></p>
+        <div class="table-wrap" id="preview-step7-2-wrap" hidden>
+          <table id="preview-step7-2"></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-step8" class="page" role="tabpanel">
+      <div class="card">
+        <h2>8단계. 최종 결과 정리</h2>
+        <p class="hint"><strong>1) 7-2단계 결과 파일을 업로드하세요.</strong></p>
+        <div class="dropzone" id="drop-step8-base" tabindex="0">
+          <input type="file" id="file-step8-base" accept=".xls,.xlsx,.json,.csv" />
+          <strong>7-2단계 결과 파일 업로드</strong>
+          <span>7-2단계 결과.xlsx 또는 .json, .csv</span>
+        </div>
+        <p class="status" id="status-step8-base"></p>
+
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step8-process">8단계 최종 열 정리 후 XLSX 다운로드</button>
+        </div>
+        <p class="hint" style="margin-top:0.5rem">최종지수(H_m) 열은 생성되며, 계산식은 추후 추가될 예정입니다.</p>
+        <p class="status" id="status-step8"></p>
+        <div class="table-wrap" id="preview-step8-wrap" hidden>
+          <table id="preview-step8"></table>
+        </div>
+      </div>
+    </section>
   </main>
 
   <script>
@@ -424,8 +793,24 @@
     const CANONICAL_SIDO = "시도교육청명";
     const SIDO_ALIASES = ["시도교육청명", "시도교육청"];
     const STEP1_COLUMNS = ["학구ID", "학교ID", "학교명", CANONICAL_SIDO];
+    const STEP1_SCHOOL_RENAMES = {
+      "대구송원초등학교": "대구군위초등학교송원캠퍼스",
+      "대구고매초등학교": "대구부계초등학교고매캠퍼스",
+      "대구효령초등학교": "대구부계초등학교효령캠퍼스",
+      "대구의흥초등학교": "대구부계초등학교의흥캠퍼스"
+    };
+    const STEP1_EXCLUDED_SCHOOLS = new Set(["의흥중학교(휴교)"]);
     const STEP2_REQUIRED_COLS = ["학교명", "학구ID", "학교ID", "지역", "전입학생수 계", "전출학생수 계", "전체학생수 계"];
     const STEP2_NET_RATE_COL = "순전입률";
+    const STEP4_REQUIRED_REGIONS = ["중구", "수성구", "서구", "북구", "동구", "달성군", "달서구", "남구", "군위군"];
+    const STEP61_MULTICULTURAL_SCHOOL_COLS = [
+      "초등학교",
+      "중학교",
+      "일반고등학교",
+      "특수목적고등학교",
+      "특성화고등학교",
+      "자율고등학교"
+    ];
 
     let step1Raw = { columns: [], records: [] };
     let step1All = { headers: [], rows: [] };
@@ -437,7 +822,103 @@
     let step2Result = { headers: [], rows: [] };
     let step3File = null;
     let step32File = null;
-
+    let step41File = null;
+    let step42File1 = null;
+    let step42File2 = null;
+    let step5BaseFile = null;
+    let step5PathFile = null;
+    let step6BaseRecords = null;
+    let step61File = null;
+    let step62BaseFile = null;
+    let step62BenefitFile = null;
+    let step62YouthFile = null;
+    let step63BaseFile = null;
+    let step63SpecialFile = null;
+    let step64BaseFile = null;
+    const STEP64_ISCU_RATE_HEADERS = ["다문화학생비율", "청소년 교육급여자 비율", "P_special"];
+    const STEP64_SIGUNGU_HEADERS = ["시군구명", "시군 구명"];
+    let step7BaseRecords = null;
+    let step72JobFile = null;
+    let step8BaseFile = null;
+    const STEP7_DAEGU_REGION_FULL = [
+      "대구광역시 중구",
+      "대구광역시 동구",
+      "대구광역시 서구",
+      "대구광역시 남구",
+      "대구광역시 북구",
+      "대구광역시 수성구",
+      "대구광역시 달서구",
+      "대구광역시 달성군",
+      "대구광역시 군위군"
+    ];
+    const STEP7_DAEGU_REGION_SHORT = [
+      "중구",
+      "동구",
+      "서구",
+      "남구",
+      "북구",
+      "수성구",
+      "달서구",
+      "달성군",
+      "군위군"
+    ];
+    const STEP7_HJOB_RATE_COLS = [
+      "LTRS_INCOME_NMPR_RATE",
+      "GNRL_INCOME_NMPR_RATE",
+      "PRFSN_INCOME_NMPR_RATE",
+      "REPRSNT_RATE",
+      "SEEM_RATE",
+      "PRFSN_SEEM_RATE",
+      "ETC_RATE"
+    ];
+    const STEP8_COLUMN_RENAMES = {
+      "학구순전입률": "R_net",
+      "소비 동질성": "H_ppc",
+      "다문화학생비율": "P_multi",
+      "전체학생수 계": "학교 학생 수"
+    };
+    const STEP8_OUTPUT_COLUMNS = [
+      "학교명",
+      "학교 학생 수",
+      "최종지수(H_m)",
+      "P_special",
+      "I_SCU",
+      "H_path",
+      "H_job",
+      "H_ppc",
+      "1위 업종",
+      "R_net"
+    ];
+    const STEP63_SPECIAL_SUM_COLS = ["S", "V", "AE", "AH", "AK"];
+    const STEP63_OPEN_ID_HEADERS = ["개방ID", "개방 ID", "개방id"];
+    const STEP63_REGION_HEADERS = ["시군구명", "시군 구명"];
+    const STEP5_SCHOOL_TYPE_CATEGORIES = ["초등학교", "중학교", "고등학교"];
+    const STEP5_SCHOOL_TYPE_HEADERS = ["학제유형명", "학제유형", "학제 유형"];
+    const STEP5_SCHOOL_NAME_HEADERS = ["학교명", "학교 명"];
+    const STEP5_OUTPUT_COLUMNS = [
+      "개방ID",
+      "학교명",
+      "지역",
+      "전체학생수 계",
+      "학구순전입률",
+      "소비 동질성",
+      "1위 업종",
+      "HHI졸업후",
+      "H_path"
+    ];
+    const STEP5_OPEN_ID_HEADERS = ["개방ID", "개방 ID", "개방id"];
+    const STEP5_HIGH_SCHOOL_HEADERS = {
+      graduateTotal: ["유초중등학생_졸업생수", "유초중등학생 졸업생수"],
+      higherEd: ["고등교육진학학생수"],
+      unemployed: ["무직자수"],
+      employed: ["취업자수"],
+      abroadUniv: ["국외대학진학학생수"],
+      abroadCollege: ["국외전문대학진학학생수"],
+      studyAbroad: ["유학이민학생수"],
+      domesticUniv: ["국내대학진학학생수"],
+      domesticCollege: ["국내전문대학진학학생수"],
+      domesticVarious: ["국내각종학교진학학생수"]
+    };
     document.querySelectorAll("nav.tabs button").forEach((btn) => {
       btn.addEventListener("click", () => {
         document.querySelectorAll("nav.tabs button").forEach((b) => {
@@ -551,6 +1032,14 @@
       throw new Error("지원 형식: .xlsx, .xls, .json, .csv");
     }
 
+    async function loadWorkbook(file) {
+      const name = (file.name || "").toLowerCase();
+      if (!name.endsWith(".xls") && !name.endsWith(".xlsx")) {
+        throw new Error("지원 형식: .xlsx, .xls");
+      }
+      return XLSX.read(await readFileAsArrayBuffer(file), { type: "array" });
+    }
+
     function dataToRecords(data) {
       return data.rows.map((row) => {
         const record = {};
@@ -579,23 +1068,60 @@
       return "";
     }
 
-    function renderTable(tableEl, wrapEl, data, limit) {
+    function isHighlightColumn(header, highlightHeaders) {
+      if (!highlightHeaders || !highlightHeaders.length) return false;
+      const key = normalizeHeaderKey(header);
+      return highlightHeaders.some((name) => normalizeHeaderKey(name) === key);
+    }
+
+    function renderTable(tableEl, wrapEl, data, limit, highlightHeaders) {
       const max = limit || 200;
       let html = "<thead><tr>";
       data.headers.forEach((header) => {
-        html += `<th>${escapeHtml(header)}</th>`;
+        const highlightClass = isHighlightColumn(header, highlightHeaders) ? ' class="hm-highlight"' : "";
+        html += `<th${highlightClass}>${escapeHtml(header)}</th>`;
       });
       html += "</tr></thead><tbody>";
       data.rows.slice(0, max).forEach((row) => {
         html += "<tr>";
-        row.forEach((cell) => {
-          html += `<td title="${escapeAttr(cell)}">${escapeHtml(cell)}</td>`;
+        row.forEach((cell, colIndex) => {
+          const header = data.headers[colIndex];
+          const highlightClass = isHighlightColumn(header, highlightHeaders) ? ' class="hm-highlight"' : "";
+          html += `<td${highlightClass} title="${escapeAttr(cell)}">${escapeHtml(cell)}</td>`;
         });
         html += "</tr>";
       });
       html += "</tbody>";
       tableEl.innerHTML = html;
       wrapEl.hidden = false;
+    }
+
+    function applyXlsxColumnFill(worksheet, columnNames) {
+      if (!worksheet || !worksheet["!ref"] || !columnNames.length) return;
+      const range = XLSX.utils.decode_range(worksheet["!ref"]);
+      const headerRow = range.s.r;
+      const colIndexByName = new Map();
+
+      for (let c = range.s.c; c <= range.e.c; c += 1) {
+        const addr = XLSX.utils.encode_cell({ r: headerRow, c });
+        const cell = worksheet[addr];
+        const header = cell ? String(cell.v ?? cell.w ?? "") : "";
+        colIndexByName.set(normalizeHeaderKey(header), c);
+      }
+
+      const fillStyle = {
+        fill: { patternType: "solid", fgColor: { rgb: "FFFEF08A" } }
+      };
+
+      columnNames.forEach((name) => {
+        const colIdx = colIndexByName.get(normalizeHeaderKey(name));
+        if (colIdx === undefined) return;
+        for (let r = headerRow; r <= range.e.r; r += 1) {
+          const addr = XLSX.utils.encode_cell({ r, c: colIdx });
+          if (!worksheet[addr]) worksheet[addr] = { t: "s", v: "" };
+          worksheet[addr].s = fillStyle;
+        }
+      });
     }
 
     function escapeHtml(value) {
@@ -617,8 +1143,10 @@
       XLSX.writeFile(workbook, filename);
     }
 
-    function exportRecordsXlsx(records, filename) {
+    function exportRecordsXlsx(records, filename, options) {
       const worksheet = XLSX.utils.json_to_sheet(records);
+      const highlightColumns = options && options.highlightColumns ? options.highlightColumns : [];
+      if (highlightColumns.length) applyXlsxColumnFill(worksheet, highlightColumns);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "결과");
       XLSX.writeFile(workbook, filename);
@@ -635,38 +1163,107 @@
       URL.revokeObjectURL(link.href);
     }
 
+    function applyStep1SchoolCorrections(records) {
+      return records
+        .filter((record) => !STEP1_EXCLUDED_SCHOOLS.has(normalize(record.학교명)))
+        .map((record) => {
+          const schoolName = normalize(record.학교명);
+          const renamed = STEP1_SCHOOL_RENAMES[schoolName];
+          if (!renamed) return record;
+          return { ...record, 학교명: renamed };
+        });
+    }
+
+    function showStep1UploadCard() {
+      document.getElementById("card-step1-upload").hidden = false;
+    }
+
+    function step1FetchHint(error) {
+      if (window.location.protocol === "file:") {
+        return "index.html을 PC에서 직접 연 경우(주소가 file://) 브라우저가 JSON 자동 로드를 막습니다. 아래에서 JSON 파일을 업로드하거나, VS Code Live Server 등으로 열어주세요.";
+      }
+      if (error && /404|not found/i.test(String(error.message || error))) {
+        return (
+          STEP1_JSON_FILE +
+          " 파일이 서버에 없습니다. GitHub Pages에 index.html과 같은 폴더에 JSON을 올렸는지 확인하거나, 아래에서 업로드해주세요."
+        );
+      }
+      return (
+        "JSON 자동 로드 실패(" +
+        (error && error.message ? error.message : "Failed to fetch") +
+        "). 아래에서 전국학교학구도연계정보표준데이터.json을 업로드해주세요."
+      );
+    }
+
+    async function fetchStep1Json() {
+      const urls = [STEP1_JSON_FILE, encodeURI(STEP1_JSON_FILE)];
+      let lastError = null;
+      for (const url of urls) {
+        try {
+          const response = await fetch(url, { cache: "no-store" });
+          if (!response.ok) {
+            lastError = new Error(url + " — HTTP " + response.status);
+            continue;
+          }
+          return await response.json();
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      throw lastError || new Error("JSON을 불러오지 못했습니다.");
+    }
+
+    function applyStep1LoadedJson(rawJson) {
+      step1Raw = normalizeJson(rawJson);
+      step1Raw.records = applyStep1SchoolCorrections(step1Raw.records);
+      const sidoList = [...new Set(step1Raw.records.map(getSidoValue).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, "ko")
+      );
+
+      const select = document.getElementById("filter-sido");
+      select.innerHTML = '<option value="">선택하세요</option>';
+      sidoList.forEach((sido) => {
+        const option = document.createElement("option");
+        option.value = sido;
+        option.textContent = sido;
+        select.appendChild(option);
+      });
+
+      document.getElementById("card-step1-sido").hidden = sidoList.length === 0;
+      document.getElementById("card-step1-upload").hidden = true;
+      step1All = {
+        headers: STEP1_COLUMNS,
+        rows: step1Raw.records.map((record) => [
+          record["학구ID"] ?? "",
+          record["학교ID"] ?? "",
+          record["학교명"] ?? "",
+          getSidoValue(record)
+        ])
+      };
+      setStatus("status-step1", `변환 완료: ${step1All.rows.length}행 - 시도교육청명을 선택하세요.`, "ok");
+    }
+
     async function initStep1() {
+      if (window.location.protocol === "file:") {
+        showStep1UploadCard();
+        setStatus("status-step1", step1FetchHint(null), "error");
+        return;
+      }
+
       try {
         setStatus("status-step1", "전국학교학구도 데이터 불러오는 중...");
-        const response = await fetch(STEP1_JSON_FILE);
-        if (!response.ok) throw new Error(STEP1_JSON_FILE + " 파일을 불러오지 못했습니다.");
-        step1Raw = normalizeJson(await response.json());
-        const sidoList = [...new Set(step1Raw.records.map(getSidoValue).filter(Boolean))]
-          .sort((a, b) => a.localeCompare(b, "ko"));
-
-        const select = document.getElementById("filter-sido");
-        select.innerHTML = '<option value="">선택하세요</option>';
-        sidoList.forEach((sido) => {
-          const option = document.createElement("option");
-          option.value = sido;
-          option.textContent = sido;
-          select.appendChild(option);
-        });
-
-        document.getElementById("card-step1-sido").hidden = sidoList.length === 0;
-        step1All = {
-          headers: STEP1_COLUMNS,
-          rows: step1Raw.records.map((record) => [
-            record["학구ID"] ?? "",
-            record["학교ID"] ?? "",
-            record["학교명"] ?? "",
-            getSidoValue(record)
-          ])
-        };
-        setStatus("status-step1", `변환 완료: ${step1All.rows.length}행 - 시도교육청명을 선택하세요.`, "ok");
+        applyStep1LoadedJson(await fetchStep1Json());
       } catch (error) {
-        setStatus("status-step1", "데이터 로드 실패: " + error.message, "error");
+        showStep1UploadCard();
+        setStatus("status-step1", step1FetchHint(error), "error");
       }
+    }
+
+    async function loadStep1FromUploadedFile(file) {
+      setStatus("status-step1", file.name + " 읽는 중...");
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      applyStep1LoadedJson(parsed);
     }
 
     function applyStep1SidoFilter(sido) {
@@ -693,10 +1290,10 @@
       applyStep1SidoFilter(event.target.value);
     });
     document.getElementById("btn-step1-xlsx").addEventListener("click", () => {
-      exportXlsx(step1Result, "1단계 계산 결과.xlsx");
+      exportXlsx(step1Result, "1단계 결과.xlsx");
     });
     document.getElementById("btn-step1-json").addEventListener("click", () => {
-      exportJson(step1Result, "1단계 계산 결과.json");
+      exportJson(step1Result, "1단계 결과.json");
     });
 
     function refreshStep2ColumnUI() {
@@ -945,16 +1542,13 @@
     }
 
     function applyTransferCorrection(rows) {
-      let correctedCount = 0;
       rows.forEach((row) => {
         const openDate = Number(String(getValueByHeaderName(row, "학교개교일자") || "").replace(/\D/g, ""));
         if (openDate && openDate >= STEP3_BASE_DATE) {
           row["전입학생수 계"] = 0;
           row["전출학생수 계"] = 0;
-          correctedCount += 1;
         }
       });
-      return correctedCount;
     }
 
     document.getElementById("btn-step3-1-process").addEventListener("click", async () => {
@@ -971,9 +1565,9 @@
 
         setStatus("status-step3-1", "학교명 기준 병합 및 보정 중...");
         const merged = mergeRowsBySchoolName(userData, sheetData);
-        const correctedCount = applyTransferCorrection(merged);
+        applyTransferCorrection(merged);
         exportRecordsXlsx(merged, "3-1단계 결과.xlsx");
-        setStatus("status-step3-1", `완료: ${merged.length}행 다운로드, ${correctedCount}행 보정`, "ok");
+        setStatus("status-step3-1", `완료: ${merged.length}행 다운로드`, "ok");
       } catch (error) {
         setStatus("status-step3-1", "오류: " + error.message, "error");
       }
@@ -1013,10 +1607,1620 @@
           row["학구순전입률"] = ratesByDistrict[row["학구ID"]] ?? 0;
         });
 
+        const { filledCount, averageRate } = fillEmptyNetTransferRateWithOverallAverage(rows);
+
         exportRecordsXlsx(rows, "3-2단계 결과.xlsx");
-        setStatus("status-step3-2", `계산 완료: ${rows.length}행 다운로드`, "ok");
+        setStatus(
+          "status-step3-2",
+          `계산 완료: ${rows.length}행 다운로드` +
+            (filledCount > 0 ? `, 빈 순전입률 ${filledCount}행을 전체 평균 ${averageRate}(%)로 채움` : ""),
+          "ok"
+        );
       } catch (error) {
         setStatus("status-step3-2", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step4-1", "file-step4-1", (files) => {
+      step41File = files[0];
+      setStatus("status-step4-1", `${step41File.name} 선택됨`, "ok");
+    });
+
+    setupDropzone("drop-step4-2-file1", "file-step4-2-file1", (files) => {
+      step42File1 = files[0];
+      setStatus("status-step4-2-file1", `${step42File1.name} 선택됨`, "ok");
+    });
+
+    setupDropzone("drop-step4-2-file2", "file-step4-2-file2", (files) => {
+      step42File2 = files[0];
+      setStatus("status-step4-2-file2", `${step42File2.name} 선택됨`, "ok");
+    });
+
+    function findRecordValue(record, targetHeader) {
+      if (!record) return "";
+      const normalizedTarget = String(targetHeader).replace(/\s+/g, "").trim().toLowerCase();
+      const key = Object.keys(record).find((header) =>
+        String(header).replace(/\s+/g, "").trim().toLowerCase() === normalizedTarget
+      );
+      return key ? record[key] : "";
+    }
+
+    function findRecordKey(record, targetHeader) {
+      if (!record) return "";
+      const normalizedTarget = String(targetHeader).replace(/\s+/g, "").trim();
+      return Object.keys(record).find((header) =>
+        String(header).replace(/\s+/g, "").trim() === normalizedTarget
+      ) || "";
+    }
+
+    function normalizeDaeguRegion(value) {
+      return normalize(value).replace(/^대구광역시\s*/, "");
+    }
+
+    function buildStep41DataByRegion(records) {
+      const map = new Map();
+
+      records.forEach((record) => {
+        const region = normalize(getValueByHeaderName(record, "지역(시트)") || getValueByHeaderName(record, "지역"));
+        if (!region) return;
+        map.set(region, {
+          "소비 동질성": getValueByHeaderName(record, "동질화 지수"),
+          "1위 업종": getValueByHeaderName(record, "1위 업종"),
+          "1위 비중": getValueByHeaderName(record, "1위 비중")
+        });
+      });
+
+      if (!map.size) {
+        throw new Error(
+          "4-1단계 결과 파일에서 지역(시트)/지역 및 동질화 지수, 1위 업종, 1위 비중 열을 찾지 못했습니다."
+        );
+      }
+
+      return map;
+    }
+
+    function isEmptyCellValue(value) {
+      return value === null || value === undefined || String(value).trim() === "";
+    }
+
+    function fillEmptyNetTransferRateWithOverallAverage(rows) {
+      let totalIn = 0;
+      let totalOut = 0;
+      let totalStudents = 0;
+
+      rows.forEach((row) => {
+        totalIn += toNumber(getValueByHeaderName(row, "전입학생수 계"));
+        totalOut += toNumber(getValueByHeaderName(row, "전출학생수 계"));
+        totalStudents += toNumber(getValueByHeaderName(row, "전체학생수 계"));
+      });
+
+      const averageRate = totalStudents === 0
+        ? 0
+        : Number(((100 * (totalIn - totalOut)) / totalStudents).toFixed(2));
+
+      let filledCount = 0;
+      rows.forEach((row) => {
+        const rateKey = findRecordKey(row, "순전입률") || "순전입률";
+        if (isEmptyCellValue(row[rateKey])) {
+          row[rateKey] = averageRate;
+          filledCount += 1;
+        }
+      });
+
+      return { averageRate, filledCount };
+    }
+
+    function mergeStep42Records(file1Records, file2Records) {
+      const step41ByRegion = buildStep41DataByRegion(file2Records);
+      let matchedCount = 0;
+
+      const mergedRecords = file1Records.map((record) => {
+        const regionKey = findRecordKey(record, "지역");
+        if (!regionKey) {
+          throw new Error("3-2단계 결과 파일에 지역 열이 없습니다.");
+        }
+
+        const cleanedRegion = normalizeDaeguRegion(record[regionKey]);
+        const out = { ...record, [regionKey]: cleanedRegion };
+
+        if (step41ByRegion.has(cleanedRegion)) {
+          const step41Data = step41ByRegion.get(cleanedRegion);
+          out["소비 동질성"] = step41Data["소비 동질성"];
+          out["1위 업종"] = step41Data["1위 업종"];
+          out["1위 비중"] = step41Data["1위 비중"];
+          matchedCount += 1;
+        } else {
+          if (!Object.prototype.hasOwnProperty.call(out, "소비 동질성")) out["소비 동질성"] = "";
+          if (!Object.prototype.hasOwnProperty.call(out, "1위 업종")) out["1위 업종"] = "";
+          if (!Object.prototype.hasOwnProperty.call(out, "1위 비중")) out["1위 비중"] = "";
+        }
+
+        return out;
+      });
+
+      return { mergedRecords, matchedCount };
+    }
+
+    function removeStep42OutputColumns(records) {
+      const removeColumns = new Set(["전입학생수 계", "전출학생수 계", "순전입률"]);
+      return records.map((record) => {
+        const out = {};
+        Object.keys(record).forEach((key) => {
+          if (!removeColumns.has(String(key).trim())) {
+            out[key] = record[key];
+          }
+        });
+        return out;
+      });
+    }
+
+    function buildMulticulturalRatioTable(records) {
+      return records.map((row) => {
+        const region = normalizeDaeguRegion(getValueByHeaderName(row, "지역"));
+        let numerator = 0;
+        STEP61_MULTICULTURAL_SCHOOL_COLS.forEach((col) => {
+          numerator += toNumber(getValueByHeaderName(row, col));
+        });
+        const totalStudents = toNumber(getValueByHeaderName(row, "총학생수"));
+        const ratio = totalStudents === 0 ? 0 : (100 * numerator) / totalStudents;
+        return {
+          지역: region,
+          "다문화학생비율": Number(ratio.toFixed(6))
+        };
+      }).filter((row) => row.지역);
+    }
+
+    function mergeStep61WithBase(baseRecords, multiRecords) {
+      const ratioByRegion = new Map();
+      multiRecords.forEach((row) => {
+        const region = normalize(row.지역);
+        if (region) ratioByRegion.set(region, row["다문화학생비율"]);
+      });
+
+      let matchedCount = 0;
+      const mergedRecords = baseRecords.map((record) => {
+        const regionKey = findRecordKey(record, "지역");
+        if (!regionKey) {
+          throw new Error("4-2단계 결과 파일에 지역 열이 없습니다.");
+        }
+
+        const cleanedRegion = normalizeDaeguRegion(record[regionKey]);
+        const out = { ...record, [regionKey]: cleanedRegion };
+
+        if (ratioByRegion.has(cleanedRegion)) {
+          out["다문화학생비율"] = ratioByRegion.get(cleanedRegion);
+          matchedCount += 1;
+        } else if (!Object.prototype.hasOwnProperty.call(out, "다문화학생비율")) {
+          out["다문화학생비율"] = "";
+        }
+
+        return out;
+      });
+
+      return { mergedRecords, matchedCount };
+    }
+
+    function buildBenefitSumByRegion(benefitRecords) {
+      const sumByRegion = new Map();
+
+      benefitRecords.forEach((row) => {
+        const region = normalizeDaeguRegion(getValueByHeaderName(row, "지역"));
+        if (!region) return;
+        const count = toNumber(getValueByHeaderName(row, "수급자수"));
+        sumByRegion.set(region, (sumByRegion.get(region) || 0) + count);
+      });
+
+      return sumByRegion;
+    }
+
+    function mergeStep62WithBase(baseRecords, sumByRegion) {
+      let matchedCount = 0;
+      const mergedRecords = baseRecords.map((record) => {
+        const regionKey = findRecordKey(record, "지역");
+        if (!regionKey) {
+          throw new Error("6-1단계 결과 파일에 지역 열이 없습니다.");
+        }
+
+        const cleanedRegion = normalizeDaeguRegion(record[regionKey]);
+        const out = { ...record, [regionKey]: cleanedRegion };
+
+        if (sumByRegion.has(cleanedRegion)) {
+          out["수급자수 총합"] = sumByRegion.get(cleanedRegion);
+          matchedCount += 1;
+        } else if (!Object.prototype.hasOwnProperty.call(out, "수급자수 총합")) {
+          out["수급자수 총합"] = "";
+        }
+
+        return out;
+      });
+
+      return { mergedRecords, matchedCount };
+    }
+
+    function getYouthPopulationValue(row) {
+      const youthPopulation = getValueByHeaderName(row, "청소년 인구수");
+      if (youthPopulation !== "") return youthPopulation;
+      return getValueByHeaderName(row, "9~24세 인구수");
+    }
+
+    function buildYouthPopulationByRegion(youthRecords) {
+      const populationByRegion = new Map();
+
+      youthRecords.forEach((row) => {
+        const region = normalizeDaeguRegion(getValueByHeaderName(row, "지역"));
+        if (!region) return;
+        const population = toNumber(getYouthPopulationValue(row));
+        populationByRegion.set(region, (populationByRegion.get(region) || 0) + population);
+      });
+
+      return populationByRegion;
+    }
+
+    function applyStep62BenefitRate(mergedRecords, youthPopulationByRegion) {
+      let matchedCount = 0;
+      const finalRecords = mergedRecords.map((record) => {
+        const regionKey = findRecordKey(record, "지역");
+        const region = normalizeDaeguRegion(record[regionKey]);
+        const beneficiarySum = toNumber(record["수급자수 총합"]);
+        const youthPopulation = youthPopulationByRegion.get(region) || 0;
+        const ratio = youthPopulation === 0 ? 0 : Number(((100 * beneficiarySum) / youthPopulation).toFixed(6));
+
+        if (youthPopulationByRegion.has(region) && beneficiarySum !== 0) {
+          matchedCount += 1;
+        }
+
+        return {
+          ...record,
+          "청소년 교육급여자 비율": ratio
+        };
+      });
+
+      return { finalRecords, matchedCount };
+    }
+
+    function formatWon(value) {
+      return `${Math.round(value).toLocaleString("ko-KR")}원`;
+    }
+
+    function normalizeHeaderKey(header) {
+      return String(header ?? "").replace(/\s+/g, "").trim();
+    }
+
+    function headerMatchesAny(header, aliases) {
+      const normalized = normalizeHeaderKey(header);
+      return aliases.some((alias) => normalizeHeaderKey(alias) === normalized);
+    }
+
+    function getValueByHeaderAliases(row, aliases) {
+      if (!row) return "";
+      for (const alias of aliases) {
+        const value = getValueByHeaderName(row, alias);
+        if (value !== "") return value;
+      }
+      const keys = Object.keys(row);
+      for (const alias of aliases) {
+        const key = keys.find((header) => normalizeHeaderKey(header) === normalizeHeaderKey(alias));
+        if (key !== undefined && String(row[key]).trim() !== "") return row[key];
+      }
+      return "";
+    }
+
+    function getStep5SchoolTypeValue(row) {
+      return getValueByHeaderAliases(row, STEP5_SCHOOL_TYPE_HEADERS);
+    }
+
+    function getStep5SchoolNameValue(row) {
+      return getValueByHeaderAliases(row, STEP5_SCHOOL_NAME_HEADERS);
+    }
+
+    function step5HeaderKeyForColumn(header, index) {
+      const trimmed = String(header ?? "").trim();
+      if (trimmed) return trimmed;
+      return index === 0 ? "__EMPTY" : `__EMPTY_${index}`;
+    }
+
+    function listRecordColumnNames(records) {
+      const set = new Set();
+      (records || []).forEach((row) => {
+        Object.keys(row || {}).forEach((key) => {
+          const trimmed = String(key).trim();
+          if (trimmed) set.add(trimmed);
+        });
+      });
+      return [...set];
+    }
+
+    function recordsHaveStep5Columns(records) {
+      if (!records || !records.length) return false;
+      const hasSchoolType = records.some((row) => getStep5SchoolTypeCategory(row));
+      const hasSchoolName = records.some((row) => normalize(getStep5SchoolNameValue(row)));
+      return hasSchoolType && hasSchoolName;
+    }
+
+    function excelColumnToIndex(columnLetters) {
+      const letters = String(columnLetters).trim().toUpperCase();
+      if (!letters || !/^[A-Z]+$/.test(letters)) return -1;
+      let index = 0;
+      for (let i = 0; i < letters.length; i += 1) {
+        index = index * 26 + (letters.charCodeAt(i) - 64);
+      }
+      return index - 1;
+    }
+
+    function getStep5Col(record, columnLetters) {
+      const cells = record._cells;
+      if (!Array.isArray(cells)) return 0;
+      const index = excelColumnToIndex(columnLetters);
+      if (index < 0 || index >= cells.length) return 0;
+      return toNumber(cells[index]);
+    }
+
+    function getStep5HeaderNum(record, fieldKey) {
+      const aliases = STEP5_HIGH_SCHOOL_HEADERS[fieldKey] || [fieldKey];
+      return toNumber(getValueByHeaderAliases(record, aliases));
+    }
+
+    function recordsFromStep5SheetRows(rows, sheetNameHint) {
+      const nonEmptyRows = rows.filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
+
+      for (let headerIndex = 0; headerIndex < Math.min(nonEmptyRows.length, 25); headerIndex += 1) {
+        const headers = nonEmptyRows[headerIndex].map((cell) => String(cell ?? "").trim());
+        const hasSchoolTypeHeader = headers.some((header) => headerMatchesAny(header, STEP5_SCHOOL_TYPE_HEADERS));
+        const hasSchoolNameHeader = headers.some((header) => headerMatchesAny(header, STEP5_SCHOOL_NAME_HEADERS));
+        if (!hasSchoolTypeHeader || !hasSchoolNameHeader) continue;
+
+        const dataStartIndex = headerIndex + 1;
+
+        return nonEmptyRows.slice(dataStartIndex).map((row) => {
+          const record = { _sheetHint: sheetNameHint || "", _cells: row };
+          headers.forEach((header, index) => {
+            if (header) record[header] = row[index] ?? "";
+          });
+          return record;
+        }).filter((record) => {
+          const schoolName = normalize(getStep5SchoolNameValue(record));
+          return schoolName && schoolName !== "학교명";
+        });
+      }
+
+      return [];
+    }
+
+    async function loadStep5PathRecords(file) {
+      const name = (file.name || "").toLowerCase();
+      let records = [];
+
+      if (name.endsWith(".xls") || name.endsWith(".xlsx")) {
+        const workbook = await loadWorkbook(file);
+        workbook.SheetNames.forEach((sheetName) => {
+          const sheet = workbook.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+          records = records.concat(recordsFromStep5SheetRows(rows, sheetName));
+        });
+      }
+
+      if (!recordsHaveStep5Columns(records)) {
+        throw new Error("졸업 후 경로 데이터는 .xlsx 또는 .xls 파일로 업로드해주세요.");
+      }
+
+      const missingCells = records.filter((row) => !Array.isArray(row._cells)).length;
+      if (missingCells > 0) {
+        throw new Error("엑셀 열(U, EM 등) 위치를 읽지 못했습니다. xlsx 파일을 다시 업로드해주세요.");
+      }
+
+      if (!recordsHaveStep5Columns(records)) {
+        const columns = listRecordColumnNames(records).join(", ") || "(열 없음)";
+        throw new Error(
+          `졸업 후 경로 데이터: '학제유형명'과 '학교명' 열이 필요합니다. 파일에 있는 열: ${columns}`
+        );
+      }
+
+      return records;
+    }
+
+    function getStep5SchoolTypeCategory(row) {
+      const fromColumn = normalizeStep5SchoolType(getStep5SchoolTypeValue(row));
+      if (fromColumn && STEP5_SCHOOL_TYPE_CATEGORIES.includes(fromColumn)) return fromColumn;
+      if (row._sheetHint) {
+        const fromSheet = normalizeStep5SchoolType(row._sheetHint);
+        if (fromSheet && STEP5_SCHOOL_TYPE_CATEGORIES.includes(fromSheet)) return fromSheet;
+      }
+      return fromColumn;
+    }
+
+    function normalizeStep5SchoolType(value) {
+      const schoolType = normalize(value);
+      if (!schoolType) return "";
+      if (schoolType === "초등학교" || schoolType.includes("초등")) return "초등학교";
+      if (
+        schoolType === "중학교" ||
+        schoolType.includes("중등") ||
+        (schoolType.includes("중학") && !schoolType.includes("고등"))
+      ) {
+        return "중학교";
+      }
+      if (
+        schoolType === "고등학교" ||
+        schoolType === "일반고" ||
+        schoolType === "특성화고" ||
+        schoolType === "특목고" ||
+        schoolType === "자율고" ||
+        schoolType.includes("고등") ||
+        schoolType.includes("일반고") ||
+        schoolType.includes("특성화") ||
+        schoolType.includes("특목") ||
+        schoolType.includes("자율")
+      ) {
+        return "고등학교";
+      }
+      return "";
+    }
+
+    function computeStep5HhiGraduate(row, schoolTypeCategory) {
+      if (schoolTypeCategory === "초등학교") {
+        const U = getStep5Col(row, "U");
+        const EM = getStep5Col(row, "EM");
+        if (U === 0) return 0;
+        return ((U - EM) ** 2 + EM ** 2) / (U ** 2);
+      }
+
+      if (schoolTypeCategory === "중학교") {
+        const U = getStep5Col(row, "U");
+        if (U === 0) return 0;
+        const EH = getStep5Col(row, "EH");
+        const EX = getStep5Col(row, "EX");
+        const GP = getStep5Col(row, "GP");
+        const GX = getStep5Col(row, "GX");
+        const HB = getStep5Col(row, "HB");
+        return ((U - EH) ** 2 + EX ** 2 + GP ** 2 + GX ** 2 + HB ** 2) / (U ** 2);
+      }
+
+      if (schoolTypeCategory === "고등학교") {
+        const graduateTotal = getStep5HeaderNum(row, "graduateTotal");
+        if (graduateTotal === 0) return 0;
+
+        const higherEd = getStep5HeaderNum(row, "higherEd");
+        const unemployed = getStep5HeaderNum(row, "unemployed");
+        const employed = getStep5HeaderNum(row, "employed");
+        const abroadUniv = getStep5HeaderNum(row, "abroadUniv");
+        const abroadCollege = getStep5HeaderNum(row, "abroadCollege");
+        const studyAbroad = getStep5HeaderNum(row, "studyAbroad");
+        const domesticUniv = getStep5HeaderNum(row, "domesticUniv");
+        const domesticCollege = getStep5HeaderNum(row, "domesticCollege");
+        const domesticVarious = getStep5HeaderNum(row, "domesticVarious");
+
+        const remainder = graduateTotal - (higherEd + unemployed + employed);
+        const numerator =
+          remainder ** 2 +
+          abroadUniv ** 2 +
+          abroadCollege ** 2 +
+          unemployed ** 2 +
+          studyAbroad ** 2 +
+          employed ** 2 +
+          domesticUniv ** 2 +
+          domesticCollege ** 2 +
+          domesticVarious ** 2;
+
+        return numerator / (graduateTotal ** 2);
+      }
+
+      return 0;
+    }
+
+    function buildStep5MinMaxByCategory(rowsWithHhi) {
+      const minMaxByCategory = {};
+
+      STEP5_SCHOOL_TYPE_CATEGORIES.forEach((category) => {
+        const values = rowsWithHhi
+          .filter((row) => row._schoolTypeCategory === category)
+          .map((row) => row["HHI졸업후"]);
+
+        if (!values.length) {
+          minMaxByCategory[category] = { min: 0, max: 0 };
+          return;
+        }
+
+        minMaxByCategory[category] = {
+          min: Math.min(...values),
+          max: Math.max(...values)
+        };
+      });
+
+      return minMaxByCategory;
+    }
+
+    function buildStep5PathTable(records) {
+      const rowsWithHhi = records.map((row) => {
+        const schoolTypeCategory = getStep5SchoolTypeCategory(row);
+        const hhi = computeStep5HhiGraduate(row, schoolTypeCategory);
+
+        return {
+          row,
+          _schoolTypeCategory: schoolTypeCategory,
+          "HHI졸업후": Number(hhi.toFixed(6))
+        };
+      });
+
+      const minMaxByCategory = buildStep5MinMaxByCategory(rowsWithHhi);
+
+      return rowsWithHhi
+        .filter((item) => STEP5_SCHOOL_TYPE_CATEGORIES.includes(item._schoolTypeCategory))
+        .map((item) => {
+          const { min, max } = minMaxByCategory[item._schoolTypeCategory] || { min: 0, max: 0 };
+          const hPath = max === min ? 0 : (item["HHI졸업후"] - min) / (max - min);
+
+          return {
+            개방ID: getValueByHeaderAliases(item.row, ["개방ID", "개방 ID"]),
+            학교명: normalize(getStep5SchoolNameValue(item.row)),
+            "HHI졸업후": item["HHI졸업후"],
+            H_path: Number(hPath.toFixed(6))
+          };
+        })
+        .filter((row) => row.학교명);
+    }
+
+    function getStep5OpenIdValue(record) {
+      return getValueByHeaderAliases(record, STEP5_OPEN_ID_HEADERS);
+    }
+
+    function pickStep5OutputRecords(records) {
+      return records.map((record) => {
+        const schoolKey = findRecordKey(record, "학교명");
+        const schoolName = schoolKey ? record[schoolKey] : record.학교명 ?? "";
+        return {
+          개방ID: getStep5OpenIdValue(record),
+          학교명: schoolName ?? "",
+          지역: findRecordValue(record, "지역"),
+          "전체학생수 계": findRecordValue(record, "전체학생수 계"),
+          "학구순전입률": findRecordValue(record, "학구순전입률"),
+          "소비 동질성":
+            findRecordValue(record, "소비 동질성") || findRecordValue(record, "동질화 지수"),
+          "1위 업종": findRecordValue(record, "1위 업종"),
+          "HHI졸업후": record["HHI졸업후"] ?? "",
+          H_path: record["H_path"] ?? ""
+        };
+      });
+    }
+
+    function mergeStep5WithBase(baseRecords, pathRecords) {
+      const pathBySchool = new Map();
+      pathRecords.forEach((row) => {
+        const schoolName = normalize(row.학교명);
+        if (schoolName) pathBySchool.set(schoolName, row);
+      });
+
+      let matchedCount = 0;
+      const mergedRecords = baseRecords.map((record) => {
+        const schoolKey = findRecordKey(record, "학교명");
+        const schoolName = normalize(schoolKey ? record[schoolKey] : "");
+        const out = { ...record };
+
+        if (pathBySchool.has(schoolName)) {
+          const pathRow = pathBySchool.get(schoolName);
+          const openId = pathRow.개방ID ?? getStep5OpenIdValue(pathRow);
+          if (openId !== "") out["개방ID"] = openId;
+          out["HHI졸업후"] = pathRow["HHI졸업후"];
+          out["H_path"] = pathRow.H_path;
+          matchedCount += 1;
+        } else {
+          const existingOpenId = getStep5OpenIdValue(out);
+          if (existingOpenId !== "") out["개방ID"] = existingOpenId;
+          else if (!Object.prototype.hasOwnProperty.call(out, "개방ID")) out["개방ID"] = "";
+          if (!Object.prototype.hasOwnProperty.call(out, "HHI졸업후")) out["HHI졸업후"] = "";
+          if (!Object.prototype.hasOwnProperty.call(out, "H_path")) out["H_path"] = "";
+        }
+
+        return out;
+      });
+
+      return { mergedRecords, matchedCount };
+    }
+
+    function isStep5PathMetricEmpty(value) {
+      if (value === null || value === undefined) return true;
+      return String(value).trim() === "";
+    }
+
+    function toStep5PathMetricNumber(value) {
+      if (isStep5PathMetricEmpty(value)) return null;
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function applyStep5PathAverages(mergedRecords) {
+      const hhiValues = [];
+      const hPathValues = [];
+
+      mergedRecords.forEach((record) => {
+        const hhi = toStep5PathMetricNumber(record["HHI졸업후"]);
+        const hPath = toStep5PathMetricNumber(record["H_path"]);
+        if (hhi !== null) hhiValues.push(hhi);
+        if (hPath !== null) hPathValues.push(hPath);
+      });
+
+      const avgHhi =
+        hhiValues.length > 0 ? Number((hhiValues.reduce((sum, v) => sum + v, 0) / hhiValues.length).toFixed(6)) : null;
+      const avgHPath =
+        hPathValues.length > 0
+          ? Number((hPathValues.reduce((sum, v) => sum + v, 0) / hPathValues.length).toFixed(6))
+          : null;
+
+      let filledHhiCount = 0;
+      let filledHPathCount = 0;
+
+      const filledRecords = mergedRecords.map((record) => {
+        const out = { ...record };
+        if (avgHhi !== null && isStep5PathMetricEmpty(out["HHI졸업후"])) {
+          out["HHI졸업후"] = avgHhi;
+          filledHhiCount += 1;
+        }
+        if (avgHPath !== null && isStep5PathMetricEmpty(out["H_path"])) {
+          out["H_path"] = avgHPath;
+          filledHPathCount += 1;
+        }
+        return out;
+      });
+
+      return { mergedRecords: filledRecords, avgHhi, avgHPath, filledHhiCount, filledHPathCount };
+    }
+
+    function normalizeOpenId(value) {
+      return String(value ?? "").trim();
+    }
+
+    function recordsFromStep63SpecialSheetRows(rows, sheetNameHint) {
+      const nonEmptyRows = rows.filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
+
+      for (let headerIndex = 0; headerIndex < Math.min(nonEmptyRows.length, 25); headerIndex += 1) {
+        const headers = nonEmptyRows[headerIndex].map((cell) => String(cell ?? "").trim());
+        const hasOpenId = headers.some((header) => headerMatchesAny(header, STEP63_OPEN_ID_HEADERS));
+        if (!hasOpenId) continue;
+
+        return nonEmptyRows.slice(headerIndex + 1).map((row) => {
+          const record = { _sheetHint: sheetNameHint || "", _cells: row };
+          headers.forEach((header, index) => {
+            if (header) record[header] = row[index] ?? "";
+          });
+          return record;
+        }).filter((record) => {
+          const openId = normalizeOpenId(getValueByHeaderAliases(record, STEP63_OPEN_ID_HEADERS));
+          return openId && openId !== "개방ID";
+        });
+      }
+
+      return [];
+    }
+
+    async function loadStep63SpecialRecords(file) {
+      const name = (file.name || "").toLowerCase();
+      let records = [];
+
+      if (name.endsWith(".xls") || name.endsWith(".xlsx")) {
+        const workbook = await loadWorkbook(file);
+        workbook.SheetNames.forEach((sheetName) => {
+          const sheet = workbook.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+          records = records.concat(recordsFromStep63SpecialSheetRows(rows, sheetName));
+        });
+      } else {
+        throw new Error("특수교육대상자 수 파일은 .xlsx 또는 .xls 형식이어야 합니다.");
+      }
+
+      if (!records.length) {
+        throw new Error("특수교육대상자 수 파일에서 '개방ID' 열이 있는 데이터 행을 찾지 못했습니다.");
+      }
+
+      const missingCells = records.filter((row) => !Array.isArray(row._cells)).length;
+      if (missingCells > 0) {
+        throw new Error("엑셀 열(S, V, AE, AH, AK) 위치를 읽지 못했습니다. xlsx 파일을 다시 업로드해주세요.");
+      }
+
+      return records;
+    }
+
+    function buildStep63SpecialTable(records) {
+      return records
+        .map((row) => {
+          const specialCount = STEP63_SPECIAL_SUM_COLS.reduce(
+            (sum, columnLetters) => sum + getStep5Col(row, columnLetters),
+            0
+          );
+          return {
+            개방ID: normalizeOpenId(getValueByHeaderAliases(row, STEP63_OPEN_ID_HEADERS)),
+            시군구명: getValueByHeaderAliases(row, STEP63_REGION_HEADERS),
+            특수교육대상자수: Number(specialCount.toFixed(6))
+          };
+        })
+        .filter((row) => row.개방ID);
+    }
+
+    function mergeStep63WithBase(baseRecords, specialRecords) {
+      const specialByOpenId = new Map();
+      specialRecords.forEach((row) => {
+        const openId = normalizeOpenId(row.개방ID);
+        if (openId) specialByOpenId.set(openId, row);
+      });
+
+      let matchedCount = 0;
+      const mergedRecords = baseRecords.map((record) => {
+        const openId = normalizeOpenId(getStep5OpenIdValue(record));
+        const out = { ...record };
+
+        if (openId && specialByOpenId.has(openId)) {
+          const specialRow = specialByOpenId.get(openId);
+          out["특수교육대상자수"] = specialRow["특수교육대상자수"];
+          out["시군구명"] = specialRow["시군구명"];
+          matchedCount += 1;
+        } else {
+          if (!Object.prototype.hasOwnProperty.call(out, "특수교육대상자수")) out["특수교육대상자수"] = "";
+          if (!Object.prototype.hasOwnProperty.call(out, "시군구명")) out["시군구명"] = "";
+        }
+
+        return out;
+      });
+
+      return { mergedRecords, matchedCount };
+    }
+
+    function computeStep63PSpecial(mergedRecords) {
+      return mergedRecords.map((record) => {
+        const totalStudents = toNumber(findRecordValue(record, "전체학생수 계"));
+        const specialCount = toNumber(record["특수교육대상자수"]);
+        const pSpecial =
+          totalStudents > 0 ? Number(((100 * specialCount) / totalStudents).toFixed(6)) : "";
+        return { ...record, P_special: pSpecial };
+      });
+    }
+
+    function isStep63MetricEmpty(value) {
+      if (value === null || value === undefined) return true;
+      return String(value).trim() === "";
+    }
+
+    function toStep63MetricNumber(value) {
+      if (isStep63MetricEmpty(value)) return null;
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function applyStep63PSpecialAverage(mergedRecords) {
+      const pValues = [];
+
+      mergedRecords.forEach((record) => {
+        const p = toStep63MetricNumber(record.P_special);
+        if (p !== null) pValues.push(p);
+      });
+
+      const avgP =
+        pValues.length > 0 ? Number((pValues.reduce((sum, v) => sum + v, 0) / pValues.length).toFixed(6)) : null;
+
+      let filledCount = 0;
+      const filledRecords = mergedRecords.map((record) => {
+        const out = { ...record };
+        if (avgP !== null && isStep63MetricEmpty(out.P_special)) {
+          out.P_special = avgP;
+          filledCount += 1;
+        }
+        return out;
+      });
+
+      return { mergedRecords: filledRecords, avgP, filledCount };
+    }
+
+    function normalizeStep64RegionValue(value) {
+      return normalize(value).replace(/^대구광역시\s*/, "");
+    }
+
+    function getStep64RegionParts(record) {
+      const jiyok = normalizeStep64RegionValue(findRecordValue(record, "지역"));
+      const sigungu = normalizeStep64RegionValue(
+        findRecordValue(record, "시군구명") || getValueByHeaderAliases(record, STEP64_SIGUNGU_HEADERS)
+      );
+      return { jiyok, sigungu };
+    }
+
+    function mergeStep64RegionColumns(record) {
+      const { jiyok, sigungu } = getStep64RegionParts(record);
+      let mergedRegion = "";
+
+      if (jiyok && sigungu) {
+        mergedRegion = jiyok === sigungu ? jiyok : "?";
+      } else if (jiyok) {
+        mergedRegion = jiyok;
+      } else if (sigungu) {
+        mergedRegion = sigungu;
+      }
+
+      const out = { ...record, 지역: mergedRegion };
+      delete out["시군구명"];
+      return out;
+    }
+
+    function getStep64RateNumber(record, headerName) {
+      const value = findRecordValue(record, headerName);
+      if (isStep63MetricEmpty(value)) return null;
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function recordsHaveStep64RateColumns(records) {
+      return STEP64_ISCU_RATE_HEADERS.every((header) =>
+        records.some((row) => findRecordKey(row, header) && getStep64RateNumber(row, header) !== null)
+      );
+    }
+
+    function applyStep64IScuAndRegion(records) {
+      let computedCount = 0;
+      let mismatchRegionCount = 0;
+
+      const outputRecords = records.map((record) => {
+        const multi = getStep64RateNumber(record, "다문화학생비율");
+        const benefit = getStep64RateNumber(record, "청소년 교육급여자 비율");
+        const pSpecial = getStep64RateNumber(record, "P_special");
+
+        const merged = mergeStep64RegionColumns(record);
+        const { jiyok, sigungu } = getStep64RegionParts(record);
+        if (jiyok && sigungu && jiyok !== sigungu) mismatchRegionCount += 1;
+
+        if (multi === null || benefit === null || pSpecial === null) {
+          merged.I_SCU = "";
+          return merged;
+        }
+
+        merged.I_SCU = Number(((100 - multi) + (100 - benefit) + (100 - pSpecial)) / 3).toFixed(6);
+        computedCount += 1;
+        return merged;
+      });
+
+      return { outputRecords, computedCount, mismatchRegionCount };
+    }
+
+    const STEP7_FULL_REGION_TO_SHORT = STEP7_DAEGU_REGION_FULL.reduce((map, full, index) => {
+      map[normalize(full)] = STEP7_DAEGU_REGION_SHORT[index];
+      return map;
+    }, {});
+
+    const STEP7_ALLOWED_FULL_REGIONS = new Set(STEP7_DAEGU_REGION_FULL.map((name) => normalize(name)));
+
+    function renameSignguNmToRegion(record) {
+      const key = Object.keys(record || {}).find(
+        (header) => normalizeHeaderKey(header) === normalizeHeaderKey("SIGNGU_NM")
+      );
+      if (!key) return record;
+      const out = { ...record };
+      out["지역"] = out[key];
+      delete out[key];
+      return out;
+    }
+
+    function computeStep72HJob(record) {
+      let sumSquares = 0;
+      STEP7_HJOB_RATE_COLS.forEach((colName) => {
+        const rate = toNumber(findRecordValue(record, colName));
+        sumSquares += rate * rate;
+      });
+      return Number(sumSquares.toFixed(6));
+    }
+
+    function processStep72JobRecords(records) {
+      const signguKey =
+        records.length > 0
+          ? Object.keys(records[0]).find(
+              (header) => normalizeHeaderKey(header) === normalizeHeaderKey("SIGNGU_NM")
+            )
+          : "";
+
+      if (!signguKey) {
+        throw new Error("직업·소득 분포 파일에 'SIGNGU_NM' 열이 필요합니다.");
+      }
+
+      const missingRateCols = STEP7_HJOB_RATE_COLS.filter(
+        (colName) => !records.some((row) => findRecordValue(row, colName) !== "")
+      );
+      if (missingRateCols.length) {
+        throw new Error("다음 열이 필요합니다: " + missingRateCols.join(", "));
+      }
+
+      const filtered = records
+        .map((record) => {
+          const rawRegion = String(record[signguKey] ?? "").trim();
+          const normalizedRegion = normalize(rawRegion);
+          if (!STEP7_ALLOWED_FULL_REGIONS.has(normalizedRegion)) return null;
+
+          const shortRegion = STEP7_FULL_REGION_TO_SHORT[normalizedRegion] || normalizeDaeguRegion(rawRegion);
+          const withRegionValue = { ...record, [signguKey]: shortRegion };
+          const renamed = renameSignguNmToRegion(withRegionValue);
+          const hJob = computeStep72HJob(renamed);
+          return { 지역: findRecordValue(renamed, "지역"), H_job: hJob };
+        })
+        .filter(Boolean);
+
+      if (!filtered.length) {
+        throw new Error(
+          "대구 9개 구·군(대구광역시 중구 등)에 해당하는 행이 없습니다. SIGNGU_NM 값을 확인해주세요."
+        );
+      }
+
+      return filtered;
+    }
+
+    function mergeStep72WithBase(baseRecords, jobRecords) {
+      const jobByRegion = new Map();
+      jobRecords.forEach((row) => {
+        const region = normalizeDaeguRegion(row.지역);
+        if (region) jobByRegion.set(region, row);
+      });
+
+      let matchedCount = 0;
+      const mergedRecords = baseRecords.map((record) => {
+        const regionKey = findRecordKey(record, "지역");
+        const region = normalizeDaeguRegion(regionKey ? record[regionKey] : findRecordValue(record, "지역"));
+        const out = { ...record };
+
+        if (region && jobByRegion.has(region)) {
+          out.H_job = jobByRegion.get(region).H_job;
+          matchedCount += 1;
+        } else if (!Object.prototype.hasOwnProperty.call(out, "H_job")) {
+          out.H_job = "";
+        }
+
+        return out;
+      });
+
+      return { mergedRecords, matchedCount };
+    }
+
+    function renameRecordColumnsByMap(record, renameMap) {
+      const out = { ...record };
+      Object.keys(renameMap).forEach((oldHeader) => {
+        const key = findRecordKey(out, oldHeader);
+        if (!key) return;
+        const newHeader = renameMap[oldHeader];
+        out[newHeader] = out[key];
+        if (key !== newHeader) delete out[key];
+      });
+      return out;
+    }
+
+    function applyStep8FinalColumns(records) {
+      return records.map((record) => {
+        const renamed = renameRecordColumnsByMap(record, STEP8_COLUMN_RENAMES);
+        const output = {};
+
+        STEP8_OUTPUT_COLUMNS.forEach((columnName) => {
+          if (columnName === "최종지수(H_m)") {
+            output[columnName] = "";
+            return;
+          }
+          const key = findRecordKey(renamed, columnName);
+          output[columnName] = key ? renamed[key] : "";
+        });
+
+        return output;
+      });
+    }
+
+    function analyzeStep4Sheet(sheetName, worksheet) {
+      const records = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+      const sectorTotals = new Map();
+
+      records.forEach((record) => {
+        const sector = normalize(findRecordValue(record, "ksic_nm"));
+        if (!sector || /음식|주점/.test(sector)) return;
+
+        const amount = toNumber(findRecordValue(record, "stlm_amt"));
+        sectorTotals.set(sector, (sectorTotals.get(sector) || 0) + amount);
+      });
+
+      const total = [...sectorTotals.values()].reduce((sum, amount) => sum + amount, 0);
+      if (total <= 0) return null;
+
+      let hhi = 0;
+      let topSector = "";
+      let topAmount = 0;
+
+      sectorTotals.forEach((amount, sector) => {
+        const share = amount / total;
+        hhi += share ** 2;
+        if (amount > topAmount) {
+          topAmount = amount;
+          topSector = sector;
+        }
+      });
+
+      return {
+        "지역(시트)": sheetName,
+        "순수 결제액": formatWon(total),
+        "1위 업종": topSector,
+        "1위 비중": `${((topAmount / total) * 100).toFixed(1)}%`,
+        "동질화 지수": Number(hhi.toFixed(4))
+      };
+    }
+
+    function buildStep4Result(workbook) {
+      const results = [];
+
+      STEP4_REQUIRED_REGIONS.forEach((region) => {
+        const sheetName = workbook.SheetNames.find((name) => normalize(name) === region);
+        if (!sheetName) return;
+
+        const result = analyzeStep4Sheet(region, workbook.Sheets[sheetName]);
+        if (result) results.push(result);
+      });
+
+      if (!results.length) {
+        throw new Error("지정된 구·군 시트에서 유효한 데이터를 찾지 못했습니다.");
+      }
+
+      const averageHhi = results.reduce((sum, row) => sum + toNumber(row["동질화 지수"]), 0) / results.length;
+      const roundedAverageHhi = Number(averageHhi.toFixed(4));
+      const existingRegions = new Set(results.map((row) => row["지역(시트)"]));
+
+      STEP4_REQUIRED_REGIONS.forEach((region) => {
+        if (existingRegions.has(region)) return;
+        results.push({
+          "지역(시트)": region,
+          "순수 결제액": "",
+          "1위 업종": "",
+          "1위 비중": "",
+          "동질화 지수": roundedAverageHhi
+        });
+      });
+
+      results.sort((a, b) => toNumber(b["동질화 지수"]) - toNumber(a["동질화 지수"]));
+
+      return {
+        averageHhi: roundedAverageHhi,
+        data: {
+          headers: ["지역(시트)", "순수 결제액", "1위 업종", "1위 비중", "동질화 지수"],
+          rows: results.map((row) => [
+            row["지역(시트)"],
+            row["순수 결제액"],
+            row["1위 업종"],
+            row["1위 비중"],
+            row["동질화 지수"]
+          ])
+        }
+      };
+    }
+
+    document.getElementById("btn-step4-1-process").addEventListener("click", async () => {
+      if (!step41File) {
+        alert("한국조폐공사_지역사랑상품권_가맹점_업종별_결제정보 파일을 선택해주세요.");
+        return;
+      }
+
+      try {
+        setStatus("status-step4-1", "구별 소비 획일화 지수 계산 중...");
+        const workbook = await loadWorkbook(step41File);
+        const { averageHhi, data } = buildStep4Result(workbook);
+
+        renderTable(
+          document.getElementById("preview-step4-1"),
+          document.getElementById("preview-step4-1-wrap"),
+          data
+        );
+        exportXlsx(data, "4-1단계 결과.xlsx");
+        setStatus(
+          "status-step4-1",
+          `완료: ${data.rows.length}개 지역 결과 다운로드, 기존 동질화 지수 평균 ${averageHhi}`,
+          "ok"
+        );
+      } catch (error) {
+        setStatus("status-step4-1", "오류: " + error.message, "error");
+      }
+    });
+
+    document.getElementById("btn-step4-2-process").addEventListener("click", async () => {
+      if (!step42File1) {
+        alert("3-2단계 결과 파일을 선택해주세요.");
+        return;
+      }
+
+      if (!step42File2) {
+        alert("4-1단계 결과 파일을 선택해주세요.");
+        return;
+      }
+
+      try {
+        setStatus("status-step4-2", "4-2 병합 처리 중...");
+        const file1Records = (await loadFile(step42File1)).records;
+        const file2Records = (await loadFile(step42File2)).records;
+
+        if (!file1Records.length) throw new Error("3-2단계 결과 파일에 데이터가 없습니다.");
+        if (!file2Records.length) throw new Error("4-1단계 결과 파일에 데이터가 없습니다.");
+
+        const { mergedRecords, matchedCount } = mergeStep42Records(file1Records, file2Records);
+        const outputRecords = removeStep42OutputColumns(mergedRecords);
+        const resultData = recordsToData(outputRecords);
+
+        renderTable(
+          document.getElementById("preview-step4-2"),
+          document.getElementById("preview-step4-2-wrap"),
+          { headers: resultData.columns, rows: resultData.records.map((record) => resultData.columns.map((col) => record[col] ?? "")) }
+        );
+        exportRecordsXlsx(outputRecords, "4-2단계 결과.xlsx");
+        setStatus(
+          "status-step4-2",
+          `완료: ${outputRecords.length}행 다운로드, ${matchedCount}행 소비 동질성·1위 업종·1위 비중 병합`,
+          "ok"
+        );
+      } catch (error) {
+        setStatus("status-step4-2", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step5-base", "file-step5-base", (files) => {
+      step5BaseFile = files[0];
+      setStatus("status-step5-base", `${step5BaseFile.name} 선택됨`, "ok");
+    });
+
+    setupDropzone("drop-step5-path", "file-step5-path", (files) => {
+      step5PathFile = files[0];
+      setStatus("status-step5-path", `${step5PathFile.name} 선택됨`, "ok");
+    });
+
+    document.getElementById("btn-step5-process").addEventListener("click", async () => {
+      if (!step5BaseFile) {
+        alert("4-2단계 결과 파일을 선택해주세요.");
+        return;
+      }
+      if (!step5PathFile) {
+        alert("졸업 후 경로 데이터 파일을 선택해주세요.");
+        return;
+      }
+
+      try {
+        setStatus("status-step5", "5단계 계산 중...");
+        const baseRecords = (await loadFile(step5BaseFile)).records;
+        const pathSourceRecords = await loadStep5PathRecords(step5PathFile);
+
+        if (!baseRecords.length) throw new Error("4-2단계 결과 파일에 데이터가 없습니다.");
+
+        const pathTable = buildStep5PathTable(pathSourceRecords);
+        if (!pathTable.length) {
+          throw new Error(
+            "HHI졸업후·H_path를 계산할 수 있는 행이 없습니다. 학제유형명·학교명을 확인해주세요."
+          );
+        }
+
+        const nonZeroHhiCount = pathTable.filter((row) => row["HHI졸업후"] > 0).length;
+        if (nonZeroHhiCount === 0) {
+          throw new Error(
+            "HHI졸업후가 모두 0입니다. 초·중학교는 U·EM·EH 등 엑셀 열 위치, 고등학교는 유초중등학생_졸업생수 등 열 이름을 확인해주세요."
+          );
+        }
+
+        const { mergedRecords: mergedBeforeAvg, matchedCount } = mergeStep5WithBase(baseRecords, pathTable);
+        const {
+          mergedRecords: mergedWithAvg,
+          avgHhi,
+          avgHPath,
+          filledHhiCount,
+          filledHPathCount
+        } = applyStep5PathAverages(mergedBeforeAvg);
+        const mergedRecords = pickStep5OutputRecords(mergedWithAvg);
+        const resultData = recordsToData(mergedRecords, STEP5_OUTPUT_COLUMNS);
+
+        renderTable(
+          document.getElementById("preview-step5"),
+          document.getElementById("preview-step5-wrap"),
+          {
+            headers: resultData.columns,
+            rows: resultData.records.map((record) =>
+              resultData.columns.map((col) => record[col] ?? "")
+            )
+          }
+        );
+        exportRecordsXlsx(mergedRecords, "5단계 결과.xlsx");
+        const avgNote =
+          avgHhi !== null || avgHPath !== null
+            ? ` · 평균 보정 HHI ${filledHhiCount}행, H_path ${filledHPathCount}행`
+            : "";
+        setStatus(
+          "status-step5",
+          `완료: ${mergedRecords.length}행 다운로드, ${matchedCount}행 병합 (HHI>0: ${nonZeroHhiCount}교)${avgNote}`,
+          "ok"
+        );
+      } catch (error) {
+        setStatus("status-step5", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step6-base", "file-step6-base", async (files) => {
+      try {
+        setStatus("status-step6-base", "4-2단계 결과 파일 읽는 중...");
+        const records = (await loadFile(files[0])).records;
+        if (!records.length) throw new Error("파일에 데이터가 없습니다.");
+        step6BaseRecords = removeStep42OutputColumns(records);
+        setStatus(
+          "status-step6-base",
+          `${files[0].name} 로드 완료 (${step6BaseRecords.length}행, 전입/전출/순전입률 열 제거됨)`,
+          "ok"
+        );
+      } catch (error) {
+        step6BaseRecords = null;
+        setStatus("status-step6-base", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step6-1", "file-step6-1", (files) => {
+      step61File = files[0];
+      setStatus("status-step6-1-upload", `${step61File.name} 선택됨`, "ok");
+    });
+
+    document.getElementById("btn-step6-1-process").addEventListener("click", async () => {
+      if (!step6BaseRecords) {
+        alert("4-2단계 결과 파일을 먼저 업로드해주세요.");
+        return;
+      }
+      if (!step61File) {
+        alert("다문화 학생 비율 데이터 파일을 선택해주세요.");
+        return;
+      }
+
+      try {
+        setStatus("status-step6-1", "6-1 P_multi 계산 중...");
+        const sourceRecords = (await loadFile(step61File)).records;
+        if (!sourceRecords.length) throw new Error("다문화 학생 비율 데이터 파일에 데이터가 없습니다.");
+
+        const multiRecords = buildMulticulturalRatioTable(sourceRecords);
+        if (!multiRecords.length) throw new Error("다문화학생비율을 계산할 수 있는 행이 없습니다.");
+
+        const { mergedRecords, matchedCount } = mergeStep61WithBase(step6BaseRecords, multiRecords);
+        const resultData = recordsToData(mergedRecords);
+
+        renderTable(
+          document.getElementById("preview-step6-1"),
+          document.getElementById("preview-step6-1-wrap"),
+          {
+            headers: resultData.columns,
+            rows: resultData.records.map((record) =>
+              resultData.columns.map((col) => record[col] ?? "")
+            )
+          }
+        );
+        exportRecordsXlsx(mergedRecords, "6-1단계 결과.xlsx");
+        setStatus(
+          "status-step6-1",
+          `완료: ${mergedRecords.length}행 다운로드, ${matchedCount}행 다문화학생비율 병합`,
+          "ok"
+        );
+      } catch (error) {
+        setStatus("status-step6-1", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step6-2-base", "file-step6-2-base", (files) => {
+      step62BaseFile = files[0];
+      setStatus("status-step6-2-base", `${step62BaseFile.name} 선택됨`, "ok");
+    });
+
+    setupDropzone("drop-step6-2-benefit", "file-step6-2-benefit", (files) => {
+      step62BenefitFile = files[0];
+      setStatus("status-step6-2-benefit", `${step62BenefitFile.name} 선택됨`, "ok");
+    });
+
+    setupDropzone("drop-step6-2-youth", "file-step6-2-youth", (files) => {
+      step62YouthFile = files[0];
+      setStatus("status-step6-2-youth", `${step62YouthFile.name} 선택됨`, "ok");
+    });
+
+    document.getElementById("btn-step6-2-process").addEventListener("click", async () => {
+      if (!step62BaseFile) {
+        alert("6-1단계 결과 파일을 선택해주세요.");
+        return;
+      }
+      if (!step62BenefitFile) {
+        alert("10~24세 교육급여자수 파일을 선택해주세요.");
+        return;
+      }
+      if (!step62YouthFile) {
+        alert("청소년 수 파일을 선택해주세요.");
+        return;
+      }
+
+      try {
+        setStatus("status-step6-2", "6-2 P_benefit 계산 중...");
+        const baseRecords = (await loadFile(step62BaseFile)).records;
+        const benefitRecords = (await loadFile(step62BenefitFile)).records;
+        const youthRecords = (await loadFile(step62YouthFile)).records;
+
+        if (!baseRecords.length) throw new Error("6-1단계 결과 파일에 데이터가 없습니다.");
+        if (!benefitRecords.length) throw new Error("10~24세 교육급여자수 파일에 데이터가 없습니다.");
+        if (!youthRecords.length) throw new Error("청소년 수 파일에 데이터가 없습니다.");
+
+        const hasBenefitRegionCol = benefitRecords.some((row) => getValueByHeaderName(row, "지역") !== "");
+        const hasBenefitCountCol = benefitRecords.some((row) => getValueByHeaderName(row, "수급자수") !== "");
+        if (!hasBenefitRegionCol || !hasBenefitCountCol) {
+          throw new Error("10~24세 교육급여자수 파일에 '지역'열과 '수급자수'열이 필요합니다.");
+        }
+
+        const hasYouthRegionCol = youthRecords.some((row) => getValueByHeaderName(row, "지역") !== "");
+        const hasYouthPopulationCol = youthRecords.some((row) => getYouthPopulationValue(row) !== "");
+        if (!hasYouthRegionCol || !hasYouthPopulationCol) {
+          throw new Error("청소년 수 파일에 '지역'열과 '청소년 인구수'(또는 '9~24세 인구수')열이 필요합니다.");
+        }
+
+        const sumByRegion = buildBenefitSumByRegion(benefitRecords);
+        if (!sumByRegion.size) {
+          throw new Error("지역별 수급자수 총합을 계산할 수 없습니다. '지역'과 '수급자수' 값을 확인해주세요.");
+        }
+
+        const { mergedRecords, matchedCount: sumMatchedCount } = mergeStep62WithBase(baseRecords, sumByRegion);
+
+        const youthPopulationByRegion = buildYouthPopulationByRegion(youthRecords);
+        if (!youthPopulationByRegion.size) {
+          throw new Error("지역별 청소년 인구수를 계산할 수 없습니다. '지역'과 인구수 열을 확인해주세요.");
+        }
+
+        const { finalRecords, matchedCount: rateMatchedCount } = applyStep62BenefitRate(
+          mergedRecords,
+          youthPopulationByRegion
+        );
+        const resultData = recordsToData(finalRecords);
+
+        renderTable(
+          document.getElementById("preview-step6-2"),
+          document.getElementById("preview-step6-2-wrap"),
+          {
+            headers: resultData.columns,
+            rows: resultData.records.map((record) =>
+              resultData.columns.map((col) => record[col] ?? "")
+            )
+          }
+        );
+        exportRecordsXlsx(finalRecords, "6-2단계 결과.xlsx");
+        setStatus(
+          "status-step6-2",
+          `완료: ${finalRecords.length}행 다운로드, ${sumMatchedCount}행 수급자수 총합 · ${rateMatchedCount}행 청소년 교육급여자 비율`,
+          "ok"
+        );
+      } catch (error) {
+        setStatus("status-step6-2", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step6-3-base", "file-step6-3-base", (files) => {
+      step63BaseFile = files[0];
+      setStatus("status-step6-3-base", `${step63BaseFile.name} 선택됨`, "ok");
+    });
+
+    setupDropzone("drop-step6-3-special", "file-step6-3-special", (files) => {
+      step63SpecialFile = files[0];
+      setStatus("status-step6-3-special", `${step63SpecialFile.name} 선택됨`, "ok");
+    });
+
+    document.getElementById("btn-step6-3-process").addEventListener("click", async () => {
+      if (!step63BaseFile) {
+        alert("5단계 결과 파일을 선택해주세요.");
+        return;
+      }
+      if (!step63SpecialFile) {
+        alert("일반학교의 특수교육대상자 수 파일을 선택해주세요.");
+        return;
+      }
+
+      try {
+        setStatus("status-step6-3", "6-3 P_special 계산 중...");
+        const baseRecords = (await loadFile(step63BaseFile)).records;
+        if (!baseRecords.length) throw new Error("5단계 결과 파일에 데이터가 없습니다.");
+
+        const hasOpenIdCol = baseRecords.some((row) => normalizeOpenId(getStep5OpenIdValue(row)) !== "");
+        if (!hasOpenIdCol) {
+          throw new Error("5단계 결과 파일에 '개방ID' 열이 필요합니다.");
+        }
+
+        const hasTotalStudentsCol = baseRecords.some((row) => findRecordValue(row, "전체학생수 계") !== "");
+        if (!hasTotalStudentsCol) {
+          throw new Error("5단계 결과 파일에 '전체학생수 계' 열이 필요합니다.");
+        }
+
+        const specialSourceRecords = await loadStep63SpecialRecords(step63SpecialFile);
+        const specialTable = buildStep63SpecialTable(specialSourceRecords);
+        if (!specialTable.length) {
+          throw new Error("특수교육대상자수를 계산할 수 있는 행이 없습니다. 개방ID·S/V/AE/AH/AK 열을 확인해주세요.");
+        }
+
+        const { mergedRecords: mergedBeforePSpecial, matchedCount } = mergeStep63WithBase(
+          baseRecords,
+          specialTable
+        );
+        const withPSpecial = computeStep63PSpecial(mergedBeforePSpecial);
+        const { mergedRecords, avgP, filledCount } = applyStep63PSpecialAverage(withPSpecial);
+        const resultData = recordsToData(mergedRecords);
+
+        renderTable(
+          document.getElementById("preview-step6-3"),
+          document.getElementById("preview-step6-3-wrap"),
+          {
+            headers: resultData.columns,
+            rows: resultData.records.map((record) =>
+              resultData.columns.map((col) => record[col] ?? "")
+            )
+          }
+        );
+        exportRecordsXlsx(mergedRecords, "6-3단계 결과.xlsx");
+        const avgNote = filledCount > 0 ? ` · P_special 평균 보정 ${filledCount}행` : "";
+        setStatus(
+          "status-step6-3",
+          `완료: ${mergedRecords.length}행 다운로드, ${matchedCount}행 개방ID 병합${avgNote}`,
+          "ok"
+        );
+      } catch (error) {
+        setStatus("status-step6-3", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step6-4-base", "file-step6-4-base", (files) => {
+      step64BaseFile = files[0];
+      setStatus("status-step6-4-base", `${step64BaseFile.name} 선택됨`, "ok");
+    });
+
+    document.getElementById("btn-step6-4-process").addEventListener("click", async () => {
+      if (!step64BaseFile) {
+        alert("6-3단계 결과 파일을 선택해주세요.");
+        return;
+      }
+
+      try {
+        setStatus("status-step6-4", "6-4 I_SCU 계산 중...");
+        const baseRecords = (await loadFile(step64BaseFile)).records;
+        if (!baseRecords.length) throw new Error("6-3단계 결과 파일에 데이터가 없습니다.");
+
+        if (!recordsHaveStep64RateColumns(baseRecords)) {
+          throw new Error(
+            "6-3단계 결과 파일에 '다문화학생비율', '청소년 교육급여자 비율', 'P_special' 열(및 유효한 값)이 필요합니다."
+          );
+        }
+
+        const { outputRecords, computedCount, mismatchRegionCount } = applyStep64IScuAndRegion(baseRecords);
+        const resultData = recordsToData(outputRecords);
+
+        renderTable(
+          document.getElementById("preview-step6-4"),
+          document.getElementById("preview-step6-4-wrap"),
+          {
+            headers: resultData.columns,
+            rows: resultData.records.map((record) =>
+              resultData.columns.map((col) => record[col] ?? "")
+            )
+          }
+        );
+        exportRecordsXlsx(outputRecords, "6-4단계 결과.xlsx");
+        setStatus(
+          "status-step6-4",
+          `완료: ${outputRecords.length}행 다운로드, I_SCU ${computedCount}행 · 지역 불일치(?) ${mismatchRegionCount}행`,
+          "ok"
+        );
+      } catch (error) {
+        setStatus("status-step6-4", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step7-1-base", "file-step7-1-base", async (files) => {
+      try {
+        setStatus("status-step7-1-base", "6-4단계 결과 파일 읽는 중...");
+        const records = (await loadFile(files[0])).records;
+        if (!records.length) throw new Error("파일에 데이터가 없습니다.");
+
+        const hasRegionCol = records.some((row) => normalizeDaeguRegion(findRecordValue(row, "지역")) !== "");
+        if (!hasRegionCol) {
+          throw new Error("6-4단계 결과 파일에 '지역' 열이 필요합니다.");
+        }
+
+        step7BaseRecords = records;
+        setStatus(
+          "status-step7-1-base",
+          `${files[0].name} 로드 완료 (${step7BaseRecords.length}행)`,
+          "ok"
+        );
+      } catch (error) {
+        step7BaseRecords = null;
+        setStatus("status-step7-1-base", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step7-2-job", "file-step7-2-job", (files) => {
+      step72JobFile = files[0];
+      setStatus("status-step7-2-job", `${step72JobFile.name} 선택됨`, "ok");
+    });
+
+    document.getElementById("btn-step7-2-process").addEventListener("click", async () => {
+      if (!step7BaseRecords) {
+        alert("7-1에서 6-4단계 결과 파일을 먼저 업로드해주세요.");
+        return;
+      }
+      if (!step72JobFile) {
+        alert("직업·소득 분포 데이터 파일을 선택해주세요.");
+        return;
+      }
+
+      try {
+        setStatus("status-step7-2", "7-2 H_job 병합 중...");
+        const jobSourceRecords = (await loadFile(step72JobFile)).records;
+        if (!jobSourceRecords.length) throw new Error("직업·소득 분포 파일에 데이터가 없습니다.");
+
+        const jobTable = processStep72JobRecords(jobSourceRecords);
+        const { mergedRecords, matchedCount } = mergeStep72WithBase(step7BaseRecords, jobTable);
+        const resultData = recordsToData(mergedRecords);
+
+        renderTable(
+          document.getElementById("preview-step7-2"),
+          document.getElementById("preview-step7-2-wrap"),
+          {
+            headers: resultData.columns,
+            rows: resultData.records.map((record) =>
+              resultData.columns.map((col) => record[col] ?? "")
+            )
+          }
+        );
+        exportRecordsXlsx(mergedRecords, "7-2단계 결과.xlsx");
+        setStatus(
+          "status-step7-2",
+          `완료: ${mergedRecords.length}행 다운로드, ${matchedCount}행 지역 기준 H_job 병합 (직업·소득 ${jobTable.length}구·군)`,
+          "ok"
+        );
+      } catch (error) {
+        setStatus("status-step7-2", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step8-base", "file-step8-base", (files) => {
+      step8BaseFile = files[0];
+      setStatus("status-step8-base", `${step8BaseFile.name} 선택됨`, "ok");
+    });
+
+    document.getElementById("btn-step8-process").addEventListener("click", async () => {
+      const file = step8BaseFile;
+      if (!file) {
+        alert("7-2단계 결과 파일을 선택해주세요.");
+        return;
+      }
+
+      try {
+        setStatus("status-step8", "8단계 열 정리 중...");
+        const baseRecords = (await loadFile(file)).records;
+        if (!baseRecords.length) throw new Error("7-2단계 결과 파일에 데이터가 없습니다.");
+
+        const hasSchoolName = baseRecords.some((row) => findRecordValue(row, "학교명") !== "");
+        if (!hasSchoolName) {
+          throw new Error("7-2단계 결과 파일에 '학교명' 열이 필요합니다.");
+        }
+
+        const outputRecords = applyStep8FinalColumns(baseRecords);
+        const resultData = recordsToData(outputRecords, STEP8_OUTPUT_COLUMNS);
+
+        const step8HighlightColumns = ["최종지수(H_m)"];
+        renderTable(
+          document.getElementById("preview-step8"),
+          document.getElementById("preview-step8-wrap"),
+          {
+            headers: resultData.columns,
+            rows: resultData.records.map((record) =>
+              resultData.columns.map((col) => record[col] ?? "")
+            )
+          },
+          200,
+          step8HighlightColumns
+        );
+        exportRecordsXlsx(outputRecords, "8단계 결과.xlsx", { highlightColumns: step8HighlightColumns });
+        setStatus(
+          "status-step8",
+          `완료: ${outputRecords.length}행 다운로드 (${STEP8_OUTPUT_COLUMNS.length}개 열, 최종지수(H_m)은 추후 계산)`,
+          "ok"
+        );
+      } catch (error) {
+        setStatus("status-step8", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step1-json", "file-step1-json-upload", async (files) => {
+      try {
+        await loadStep1FromUploadedFile(files[0]);
+      } catch (error) {
+        showStep1UploadCard();
+        setStatus("status-step1", "JSON 업로드 실패: " + error.message, "error");
       }
     });
 
