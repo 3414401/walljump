@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>다차원 사회·학업 동질성 지수(SAHI) 계산기</title>
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
   <style>
     :root {
       --bg: #f4f6f9;
@@ -207,6 +207,15 @@
       max-width: 220px;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    th.hm-highlight,
+    td.hm-highlight {
+      background: #fef08a;
+    }
+
+    th.hm-highlight {
+      background: #fde047;
     }
 
     th {
@@ -871,13 +880,13 @@
     const STEP8_OUTPUT_COLUMNS = [
       "학교명",
       "학교 학생 수",
+      "최종지수(H_m)",
       "P_special",
       "I_SCU",
       "H_path",
       "H_job",
       "H_ppc",
-      "1위 업종",
-      "최종지수(H_m)"
+      "1위 업종"
     ];
     const STEP63_SPECIAL_SUM_COLS = ["S", "V", "AE", "AH", "AK"];
     const STEP63_OPEN_ID_HEADERS = ["개방ID", "개방 ID", "개방id"];
@@ -1058,23 +1067,60 @@
       return "";
     }
 
-    function renderTable(tableEl, wrapEl, data, limit) {
+    function isHighlightColumn(header, highlightHeaders) {
+      if (!highlightHeaders || !highlightHeaders.length) return false;
+      const key = normalizeHeaderKey(header);
+      return highlightHeaders.some((name) => normalizeHeaderKey(name) === key);
+    }
+
+    function renderTable(tableEl, wrapEl, data, limit, highlightHeaders) {
       const max = limit || 200;
       let html = "<thead><tr>";
       data.headers.forEach((header) => {
-        html += `<th>${escapeHtml(header)}</th>`;
+        const highlightClass = isHighlightColumn(header, highlightHeaders) ? ' class="hm-highlight"' : "";
+        html += `<th${highlightClass}>${escapeHtml(header)}</th>`;
       });
       html += "</tr></thead><tbody>";
       data.rows.slice(0, max).forEach((row) => {
         html += "<tr>";
-        row.forEach((cell) => {
-          html += `<td title="${escapeAttr(cell)}">${escapeHtml(cell)}</td>`;
+        row.forEach((cell, colIndex) => {
+          const header = data.headers[colIndex];
+          const highlightClass = isHighlightColumn(header, highlightHeaders) ? ' class="hm-highlight"' : "";
+          html += `<td${highlightClass} title="${escapeAttr(cell)}">${escapeHtml(cell)}</td>`;
         });
         html += "</tr>";
       });
       html += "</tbody>";
       tableEl.innerHTML = html;
       wrapEl.hidden = false;
+    }
+
+    function applyXlsxColumnFill(worksheet, columnNames) {
+      if (!worksheet || !worksheet["!ref"] || !columnNames.length) return;
+      const range = XLSX.utils.decode_range(worksheet["!ref"]);
+      const headerRow = range.s.r;
+      const colIndexByName = new Map();
+
+      for (let c = range.s.c; c <= range.e.c; c += 1) {
+        const addr = XLSX.utils.encode_cell({ r: headerRow, c });
+        const cell = worksheet[addr];
+        const header = cell ? String(cell.v ?? cell.w ?? "") : "";
+        colIndexByName.set(normalizeHeaderKey(header), c);
+      }
+
+      const fillStyle = {
+        fill: { patternType: "solid", fgColor: { rgb: "FFFEF08A" } }
+      };
+
+      columnNames.forEach((name) => {
+        const colIdx = colIndexByName.get(normalizeHeaderKey(name));
+        if (colIdx === undefined) return;
+        for (let r = headerRow; r <= range.e.r; r += 1) {
+          const addr = XLSX.utils.encode_cell({ r, c: colIdx });
+          if (!worksheet[addr]) worksheet[addr] = { t: "s", v: "" };
+          worksheet[addr].s = fillStyle;
+        }
+      });
     }
 
     function escapeHtml(value) {
@@ -1096,8 +1142,10 @@
       XLSX.writeFile(workbook, filename);
     }
 
-    function exportRecordsXlsx(records, filename) {
+    function exportRecordsXlsx(records, filename, options) {
       const worksheet = XLSX.utils.json_to_sheet(records);
+      const highlightColumns = options && options.highlightColumns ? options.highlightColumns : [];
+      if (highlightColumns.length) applyXlsxColumnFill(worksheet, highlightColumns);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "결과");
       XLSX.writeFile(workbook, filename);
@@ -3142,6 +3190,7 @@
         const outputRecords = applyStep8FinalColumns(baseRecords);
         const resultData = recordsToData(outputRecords, STEP8_OUTPUT_COLUMNS);
 
+        const step8HighlightColumns = ["최종지수(H_m)"];
         renderTable(
           document.getElementById("preview-step8"),
           document.getElementById("preview-step8-wrap"),
@@ -3150,9 +3199,11 @@
             rows: resultData.records.map((record) =>
               resultData.columns.map((col) => record[col] ?? "")
             )
-          }
+          },
+          200,
+          step8HighlightColumns
         );
-        exportRecordsXlsx(outputRecords, "8단계 결과.xlsx");
+        exportRecordsXlsx(outputRecords, "8단계 결과.xlsx", { highlightColumns: step8HighlightColumns });
         setStatus(
           "status-step8",
           `완료: ${outputRecords.length}행 다운로드 (${STEP8_OUTPUT_COLUMNS.length}개 열, 최종지수(H_m)은 추후 계산)`,
