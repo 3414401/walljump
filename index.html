@@ -463,7 +463,7 @@
       <div class="card">
         <h2>4-2. 동질화 지수 병합</h2>
         <p class="hint">
-          3-2단계 결과 파일에 4-1단계에서 계산한 지역별 동질화 지수를 지역 기준으로 병합합니다. 결과 열 이름은 소비 동질성입니다.
+          3-2단계 결과 파일에 4-1단계의 소비 동질성(동질화 지수), 1위 업종, 1위 비중을 지역 기준으로 병합합니다.
         </p>
         <div class="dropzone" id="drop-step4-2-file1" tabindex="0">
           <input type="file" id="file-step4-2-file1" accept=".xls,.xlsx,.json,.csv" />
@@ -514,6 +514,7 @@
           </a>
         </div>
         <p class="hint"><strong>2) 다운로드한 파일을 업로드한 뒤 P_multi 계산을 실행하세요.</strong></p>
+        <p class="hint">(출처: https://www.dge.go.kr/main/ad/ed/view/selectEdcStatsView.do?mi=5793)</p>
         <div class="dropzone" id="drop-step5-1" tabindex="0" style="margin-top:1rem">
           <input type="file" id="file-step5-1" accept=".xls,.xlsx,.json,.csv" />
           <strong>다문화 학생 비율 데이터 파일 업로드</strong>
@@ -540,6 +541,7 @@
         <p class="status" id="status-step5-2-base"></p>
 
         <p class="hint"><strong>1) 10~24세 교육급여자수 파일을 다운로드하세요.</strong></p>
+        <p class="hint">(출처:https://www.data.go.kr/data/15047723/fileData.do)</p>
         <div class="btn-row">
           <a
             class="download-link"
@@ -560,6 +562,7 @@
         <p class="status" id="status-step5-2-benefit"></p>
 
         <p class="hint"><strong>3) 청소년 수 파일을 다운로드하세요.</strong></p>
+        <p class="hint">(출처: https://www.daegu.go.kr/woman/index.do?menu_id=00000578)</p>
         <div class="btn-row">
           <a
             class="download-link"
@@ -605,6 +608,13 @@
     const CANONICAL_SIDO = "시도교육청명";
     const SIDO_ALIASES = ["시도교육청명", "시도교육청"];
     const STEP1_COLUMNS = ["학구ID", "학교ID", "학교명", CANONICAL_SIDO];
+    const STEP1_SCHOOL_RENAMES = {
+      "대구송원초등학교": "대구군위초등학교송원캠퍼스",
+      "대구고매초등학교": "대구부계초등학교고매캠퍼스",
+      "대구효령초등학교": "대구부계초등학교효령캠퍼스",
+      "대구의흥초등학교": "대구부계초등학교의흥캠퍼스"
+    };
+    const STEP1_EXCLUDED_SCHOOLS = new Set(["의흥중학교(휴교)"]);
     const STEP2_REQUIRED_COLS = ["학교명", "학구ID", "학교ID", "지역", "전입학생수 계", "전출학생수 계", "전체학생수 계"];
     const STEP2_NET_RATE_COL = "순전입률";
     const STEP4_REQUIRED_REGIONS = ["중구", "수성구", "서구", "북구", "동구", "달성군", "달서구", "남구", "군위군"];
@@ -841,12 +851,24 @@
       URL.revokeObjectURL(link.href);
     }
 
+    function applyStep1SchoolCorrections(records) {
+      return records
+        .filter((record) => !STEP1_EXCLUDED_SCHOOLS.has(normalize(record.학교명)))
+        .map((record) => {
+          const schoolName = normalize(record.학교명);
+          const renamed = STEP1_SCHOOL_RENAMES[schoolName];
+          if (!renamed) return record;
+          return { ...record, 학교명: renamed };
+        });
+    }
+
     async function initStep1() {
       try {
         setStatus("status-step1", "전국학교학구도 데이터 불러오는 중...");
         const response = await fetch(STEP1_JSON_FILE);
         if (!response.ok) throw new Error(STEP1_JSON_FILE + " 파일을 불러오지 못했습니다.");
         step1Raw = normalizeJson(await response.json());
+        step1Raw.records = applyStep1SchoolCorrections(step1Raw.records);
         const sidoList = [...new Set(step1Raw.records.map(getSidoValue).filter(Boolean))]
           .sort((a, b) => a.localeCompare(b, "ko"));
 
@@ -1266,17 +1288,23 @@
       return normalize(value).replace(/^대구광역시\s*/, "");
     }
 
-    function buildHomogeneityByRegion(records) {
+    function buildStep41DataByRegion(records) {
       const map = new Map();
 
       records.forEach((record) => {
         const region = normalize(getValueByHeaderName(record, "지역(시트)") || getValueByHeaderName(record, "지역"));
         if (!region) return;
-        map.set(region, getValueByHeaderName(record, "동질화 지수"));
+        map.set(region, {
+          "소비 동질성": getValueByHeaderName(record, "동질화 지수"),
+          "1위 업종": getValueByHeaderName(record, "1위 업종"),
+          "1위 비중": getValueByHeaderName(record, "1위 비중")
+        });
       });
 
       if (!map.size) {
-        throw new Error("4-1단계 결과 파일에서 지역(시트)/지역 및 동질화 지수 열을 찾지 못했습니다.");
+        throw new Error(
+          "4-1단계 결과 파일에서 지역(시트)/지역 및 동질화 지수, 1위 업종, 1위 비중 열을 찾지 못했습니다."
+        );
       }
 
       return map;
@@ -1314,7 +1342,7 @@
     }
 
     function mergeStep42Records(file1Records, file2Records) {
-      const homogeneityByRegion = buildHomogeneityByRegion(file2Records);
+      const step41ByRegion = buildStep41DataByRegion(file2Records);
       let matchedCount = 0;
 
       const mergedRecords = file1Records.map((record) => {
@@ -1326,11 +1354,16 @@
         const cleanedRegion = normalizeDaeguRegion(record[regionKey]);
         const out = { ...record, [regionKey]: cleanedRegion };
 
-        if (homogeneityByRegion.has(cleanedRegion)) {
-          out["소비 동질성"] = homogeneityByRegion.get(cleanedRegion);
+        if (step41ByRegion.has(cleanedRegion)) {
+          const step41Data = step41ByRegion.get(cleanedRegion);
+          out["소비 동질성"] = step41Data["소비 동질성"];
+          out["1위 업종"] = step41Data["1위 업종"];
+          out["1위 비중"] = step41Data["1위 비중"];
           matchedCount += 1;
-        } else if (!Object.prototype.hasOwnProperty.call(out, "소비 동질성")) {
-          out["소비 동질성"] = "";
+        } else {
+          if (!Object.prototype.hasOwnProperty.call(out, "소비 동질성")) out["소비 동질성"] = "";
+          if (!Object.prototype.hasOwnProperty.call(out, "1위 업종")) out["1위 업종"] = "";
+          if (!Object.prototype.hasOwnProperty.call(out, "1위 비중")) out["1위 비중"] = "";
         }
 
         return out;
@@ -1620,7 +1653,11 @@
           { headers: resultData.columns, rows: resultData.records.map((record) => resultData.columns.map((col) => record[col] ?? "")) }
         );
         exportRecordsXlsx(outputRecords, "4-2단계 결과.xlsx");
-        setStatus("status-step4-2", `완료: ${outputRecords.length}행 다운로드, ${matchedCount}행 소비 동질성 병합`, "ok");
+        setStatus(
+          "status-step4-2",
+          `완료: ${outputRecords.length}행 다운로드, ${matchedCount}행 소비 동질성·1위 업종·1위 비중 병합`,
+          "ok"
+        );
       } catch (error) {
         setStatus("status-step4-2", "오류: " + error.message, "error");
       }
