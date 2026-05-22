@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>다차원 사회·학업 동질성 지수 계산기</title>
+  <title>다차원 사회·학업 동질성 지수(SAHI) 계산기</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
     :root {
@@ -266,11 +266,12 @@
 </head>
 <body>
   <header>
-    <h1>다차원 사회·학업 동질성 지수 계산기</h1>
+    <h1>다차원 사회·학업 동질성 지수(SAHI) 계산기</h1>
     <p>1단계 → 2단계 → 3-1 → 3-2 → 4단계 → 5단계 → 6단계 → 7단계 → 8단계 순서로 파일을 처리합니다.</p>
   </header>
 
   <nav class="tabs" role="tablist">
+    <button type="button" data-page="step0" role="tab" aria-selected="false">0단계</button>
     <button type="button" class="active" data-page="step1" role="tab" aria-selected="true">1단계</button>
     <button type="button" data-page="step2" role="tab" aria-selected="false">2단계</button>
     <button type="button" data-page="step3" role="tab" aria-selected="false">3단계</button>
@@ -282,6 +283,13 @@
   </nav>
 
   <main>
+    <section id="page-step0" class="page" role="tabpanel">
+      <div class="card">
+        <h2>사용 방법</h2>
+        <p class="hint">안내 내용은 추후 업데이트될 예정입니다.</p>
+      </div>
+    </section>
+
     <section id="page-step1" class="page active" role="tabpanel">
       <div class="card">
         <h2>1단계</h2>
@@ -438,6 +446,9 @@
     </section>
 
     <section id="page-step4" class="page" role="tabpanel">
+      <div class="notice">
+        4단계는 구별 소비 획일화 지수를 계산하는 단계입니다. 4-2는 우선 4-1 결과물 업로드까지만 준비되어 있습니다.
+      </div>
 
       <div class="card">
         <h2>4-1. 구별 소비 획일화 지수 계산</h2>
@@ -551,12 +562,12 @@
 
     <section id="page-step6" class="page" role="tabpanel">
       <div class="card">
-        <h2>6단계. 우선 5단계 결과 파일을 업로드 하세요.</h2>
-        <p class="hint">5단계 결과 파일을 올리면 전입학생수 계, 전출학생수 계, 순전입률 열은 자동으로 제거됩니다.</p>
+        <h2>6단계. 4-2단계 결과 준비</h2>
+        <p class="hint">4-2단계 결과 파일을 올리면 전입학생수 계, 전출학생수 계, 순전입률 열은 자동으로 제거됩니다.</p>
         <div class="dropzone" id="drop-step6-base" tabindex="0">
           <input type="file" id="file-step6-base" accept=".xls,.xlsx,.json,.csv" />
-          <strong>5단계 결과 파일 업로드</strong>
-          <span>5단계 결과.xlsx 또는 .json, .csv</span>
+          <strong>4-2단계 결과 파일 업로드</strong>
+          <span>4-2단계 결과.xlsx 또는 .json, .csv</span>
         </div>
         <p class="status" id="status-step6-base"></p>
       </div>
@@ -771,7 +782,7 @@
         <div class="btn-row">
           <button type="button" class="primary" id="btn-step8-process">8단계 최종 열 정리 후 XLSX 다운로드</button>
         </div>
-        <p class="hint" style="margin-top:0.5rem">최종지수(H_m) 열은 생성되며, 계산식은 추후 추가될 예정입니다.</p>
+        <p class="hint" style="margin-top:0.5rem">학교 학생 수가 없거나 0인 행은 제외한 뒤 최종지수(H_m)을 계산합니다.</p>
         <p class="status" id="status-step8"></p>
         <div class="table-wrap" id="preview-step8-wrap" hidden>
           <table id="preview-step8"></table>
@@ -2581,6 +2592,45 @@
       return out;
     }
 
+    function getStep8MetricNumber(record, columnName) {
+      const key = findRecordKey(record, columnName);
+      const raw = key ? record[key] : record[columnName];
+      if (raw === null || raw === undefined || String(raw).trim() === "") return null;
+      const num = Number(raw);
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function hasStep8StudentCount(record) {
+      const count = getStep8MetricNumber(record, "학교 학생 수");
+      return count !== null && count > 0;
+    }
+
+    function computeStep8Hm(record) {
+      const studentCount = getStep8MetricNumber(record, "학교 학생 수");
+      const iScu = getStep8MetricNumber(record, "I_SCU");
+      const hPath = getStep8MetricNumber(record, "H_path");
+      const hJob = getStep8MetricNumber(record, "H_job");
+      const hPpc = getStep8MetricNumber(record, "H_ppc");
+      const rNet = getStep8MetricNumber(record, "R_net");
+
+      if (
+        studentCount === null ||
+        studentCount <= 0 ||
+        iScu === null ||
+        hPath === null ||
+        hJob === null ||
+        hPpc === null ||
+        rNet === null
+      ) {
+        return null;
+      }
+
+      const rootPart = Math.sqrt((iScu * iScu + hJob * hJob + hPath * hPath + hPpc * hPpc) / 4);
+      const scalePart =
+        1 + 1.3 * Math.sqrt(Math.max(0, rNet)) * (studentCount / 490) * hPpc + Math.max(0, 1 - studentCount / 490);
+      return Number((rootPart * scalePart).toFixed(6));
+    }
+
     function applyStep8FinalColumns(records) {
       return records.map((record) => {
         const renamed = renameRecordColumnsByMap(record, STEP8_COLUMN_RENAMES);
@@ -2597,6 +2647,22 @@
 
         return output;
       });
+    }
+
+    function processStep8Records(records) {
+      const shaped = applyStep8FinalColumns(records);
+      const withStudents = shaped.filter(hasStep8StudentCount);
+      const removedCount = shaped.length - withStudents.length;
+
+      const outputRecords = withStudents.map((record) => {
+        const hm = computeStep8Hm(record);
+        return {
+          ...record,
+          "최종지수(H_m)": hm !== null ? hm : ""
+        };
+      });
+
+      return { outputRecords, removedCount };
     }
 
     function analyzeStep4Sheet(sheetName, worksheet) {
@@ -3187,7 +3253,12 @@
           throw new Error("7-2단계 결과 파일에 '학교명' 열이 필요합니다.");
         }
 
-        const outputRecords = applyStep8FinalColumns(baseRecords);
+        const { outputRecords, removedCount } = processStep8Records(baseRecords);
+        if (!outputRecords.length) {
+          throw new Error("학교 학생 수가 있는 행이 없습니다. 7-2단계 결과의 '전체학생수 계' 열을 확인해주세요.");
+        }
+
+        const hmFilledCount = outputRecords.filter((row) => getStep8MetricNumber(row, "최종지수(H_m)") !== null).length;
         const resultData = recordsToData(outputRecords, STEP8_OUTPUT_COLUMNS);
 
         const step8HighlightColumns = ["최종지수(H_m)"];
@@ -3206,7 +3277,7 @@
         exportRecordsXlsx(outputRecords, "8단계 결과.xlsx", { highlightColumns: step8HighlightColumns });
         setStatus(
           "status-step8",
-          `완료: ${outputRecords.length}행 다운로드 (${STEP8_OUTPUT_COLUMNS.length}개 열, 최종지수(H_m)은 추후 계산)`,
+          `완료: ${outputRecords.length}행 다운로드, 학생 수 없음 ${removedCount}행 제외, 최종지수(H_m) ${hmFilledCount}행 계산`,
           "ok"
         );
       } catch (error) {
