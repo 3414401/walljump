@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>다차원 사회·학업 동질성 지수(SAHI) 계산기</title>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
+  <title>다차원 사회·학업 동질성 지수 계산기</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --bg: #f4f6f9;
@@ -266,7 +266,7 @@
 </head>
 <body>
   <header>
-    <h1>다차원 사회·학업 동질성 지수(SAHI) 계산기</h1>
+    <h1>다차원 사회·학업 동질성 지수 계산기</h1>
     <p>1단계 → 2단계 → 3-1 → 3-2 → 4단계 → 5단계 → 6단계 → 7단계 → 8단계 순서로 파일을 처리합니다.</p>
   </header>
 
@@ -554,7 +554,7 @@
 
     <section id="page-step6" class="page" role="tabpanel">
       <div class="card">
-        <h2>6단계. 4-2단계 결과 준비</h2>
+        <h2>6단계. 5단계 결과 준비</h2>
         <p class="hint">4-2단계 결과 파일을 올리면 전입학생수 계, 전출학생수 계, 순전입률 열은 자동으로 제거됩니다.</p>
         <div class="dropzone" id="drop-step6-base" tabindex="0">
           <input type="file" id="file-step6-base" accept=".xls,.xlsx,.json,.csv" />
@@ -879,6 +879,7 @@
     };
     const STEP8_OUTPUT_COLUMNS = [
       "학교명",
+      "지역",
       "학교 학생 수",
       "최종지수(H_m)",
       "P_special",
@@ -2467,7 +2468,8 @@
           return merged;
         }
 
-        merged.I_SCU = Number(((100 - multi) + (100 - benefit) + (100 - pSpecial)) / 3).toFixed(6);
+        const rawIscu = ((100 - multi) + (100 - benefit) + (100 - pSpecial)) / 3;
+        merged.I_SCU = Number((rawIscu / 100).toFixed(6));
         computedCount += 1;
         return merged;
       });
