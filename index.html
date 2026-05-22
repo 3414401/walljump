@@ -258,7 +258,7 @@
 <body>
   <header>
     <h1>다차원 사회·학업 동질성 지수(SAHI) 계산기</h1>
-    <p>1단계 → 2단계 → 3-1 → 3-2 → 4단계 → 6단계 → 5단계 순서로 파일을 처리합니다.</p>
+    <p>1단계 → 2단계 → 3-1 → 3-2 → 4단계 → 5단계 → 6단계 순서로 파일을 처리합니다.</p>
   </header>
 
   <nav class="tabs" role="tablist">
@@ -266,8 +266,8 @@
     <button type="button" data-page="step2" role="tab" aria-selected="false">2단계</button>
     <button type="button" data-page="step3" role="tab" aria-selected="false">3단계</button>
     <button type="button" data-page="step4" role="tab" aria-selected="false">4단계</button>
-    <button type="button" data-page="step6" role="tab" aria-selected="false">6단계</button>
-    <button type="button" data-page="step5" role="tab" aria-selected="false">5단계</button>
+    <button type="button" data-page="step6" role="tab" aria-selected="false">5단계</button>
+    <button type="button" data-page="step5" role="tab" aria-selected="false">6단계</button>
   </nav>
 
   <main>
@@ -491,16 +491,17 @@
 
     <section id="page-step6" class="page" role="tabpanel">
       <div class="card">
-        <h2>6단계. 졸업 후 경로(H_path) 병합</h2>
-        <p class="hint"><strong>1) 5-2단계 결과 파일을 업로드하세요.</strong></p>
+        <h2>5단계. 졸업 후 경로(H_path) 병합</h2>
+        <p class="hint"><strong>1) 4-2단계 결과 파일을 업로드하세요.</strong></p>
         <div class="dropzone" id="drop-step6-base" tabindex="0">
           <input type="file" id="file-step6-base" accept=".xls,.xlsx,.json,.csv" />
-          <strong>5-2단계 결과 파일 업로드</strong>
-          <span>5-2단계 결과.xlsx 또는 .json, .csv</span>
+          <strong>4-2단계 결과 파일 업로드</strong>
+          <span>4-2단계 결과.xlsx 또는 .json, .csv</span>
         </div>
         <p class="status" id="status-step6-base"></p>
 
         <p class="hint"><strong>2) 졸업 후 경로 데이터를 다운로드하세요.</strong> (초등학교·중학교·고등학교·일반고·특성화고)</p>
+        <p class="hint">(출처: https://www.edmgr.kr/ot/dim/dmm/bm/ot_dim_dmmbm02_m01?dtmcId=DA002024000002264000&callPage=/ot/cof/cof/mn/dtcfSearch)</p>
         <div class="btn-row">
           <a
             class="download-link"
@@ -521,7 +522,7 @@
         <p class="status" id="status-step6-path"></p>
 
         <div class="btn-row">
-          <button type="button" class="primary" id="btn-step6-process">6단계 계산 후 XLSX 다운로드</button>
+          <button type="button" class="primary" id="btn-step6-process">5단계 계산 후 XLSX 다운로드</button>
         </div>
         <p class="status" id="status-step6"></p>
         <div class="table-wrap" id="preview-step6-wrap" hidden>
@@ -532,18 +533,18 @@
 
     <section id="page-step5" class="page" role="tabpanel">
       <div class="card">
-        <h2>4-2단계 결과 파일 업로드</h2>
-        <p class="hint">4-2단계 결과 파일을 올리면 전입학생수 계, 전출학생수 계, 순전입률 열은 자동으로 제거됩니다.</p>
+        <h2>5-2단계 결과 파일 업로드</h2>
+        <p class="hint">5-2단계 결과 파일을 올리면 전입학생수 계, 전출학생수 계, 순전입률 열은 자동으로 제거됩니다.</p>
         <div class="dropzone" id="drop-step5-base" tabindex="0">
           <input type="file" id="file-step5-base" accept=".xls,.xlsx,.json,.csv" />
-          <strong>4-2단계 결과 파일을 업로드해주세요.</strong>
-          <span>4-2단계 결과.xlsx 또는 .json, .csv</span>
+          <strong>5-2단계 결과 파일을 업로드해주세요.</strong>
+          <span>5-2단계 결과.xlsx 또는 .json, .csv</span>
         </div>
         <p class="status" id="status-step5-base"></p>
       </div>
 
       <div class="card">
-        <h2>5-1. P_multi 계산하기</h2>
+        <h2>6-1. P_multi 계산하기</h2>
         <p class="hint"><strong>1) 아래 버튼으로 다문화 학생 비율 데이터 파일을 다운로드하세요.</strong></p>
         <div class="btn-row">
           <a
@@ -573,12 +574,12 @@
       </div>
 
       <div class="card">
-        <h2>5-2. P_benefit 계산하기</h2>
-        <p class="hint"><strong>0) 5-1단계 결과 파일을 업로드하세요.</strong></p>
+        <h2>6-2. P_benefit 계산하기</h2>
+        <p class="hint"><strong>0) 6-1단계 결과 파일을 업로드하세요.</strong></p>
         <div class="dropzone" id="drop-step5-2-base" tabindex="0">
           <input type="file" id="file-step5-2-base" accept=".xls,.xlsx,.json,.csv" />
-          <strong>5-1단계 결과 파일 업로드</strong>
-          <span>5-1단계 결과.xlsx 또는 .json, .csv</span>
+          <strong>6-1단계 결과 파일 업로드</strong>
+          <span>6-1단계 결과.xlsx 또는 .json, .csv</span>
         </div>
         <p class="status" id="status-step5-2-base"></p>
 
@@ -634,7 +635,7 @@
       </div>
 
       <div class="card">
-        <h2>5-3. P_special 계산하기</h2>
+        <h2>6-3. P_special 계산하기</h2>
         <p class="hint">추후 기능이 추가될 예정입니다.</p>
       </div>
     </section>
@@ -2080,7 +2081,7 @@
             )
           }
         );
-        exportRecordsXlsx(mergedRecords, "5-1단계 결과.xlsx");
+        exportRecordsXlsx(mergedRecords, "6-1단계 결과.xlsx");
         setStatus(
           "status-step5-1",
           `완료: ${mergedRecords.length}행 다운로드, ${matchedCount}행 다문화학생비율 병합`,
@@ -2170,7 +2171,7 @@
             )
           }
         );
-        exportRecordsXlsx(finalRecords, "5-2단계 결과.xlsx");
+        exportRecordsXlsx(finalRecords, "6-2단계 결과.xlsx");
         setStatus(
           "status-step5-2",
           `완료: ${finalRecords.length}행 다운로드, ${sumMatchedCount}행 수급자수 총합 · ${rateMatchedCount}행 청소년 교육급여자 비율`,
@@ -2193,7 +2194,7 @@
 
     document.getElementById("btn-step6-process").addEventListener("click", async () => {
       if (!step6BaseFile) {
-        alert("5-2단계 결과 파일을 선택해주세요.");
+        alert("4-2단계 결과 파일을 선택해주세요.");
         return;
       }
       if (!step6PathFile) {
@@ -2202,7 +2203,7 @@
       }
 
       try {
-        setStatus("status-step6", "6단계 계산 중...");
+        setStatus("status-step6", "5단계 계산 중...");
         const baseRecords = (await loadFile(step6BaseFile)).records;
         const pathSourceRecords = await loadStep6PathRecords(step6PathFile);
 
@@ -2235,7 +2236,7 @@
             )
           }
         );
-        exportRecordsXlsx(mergedRecords, "6단계 결과.xlsx");
+        exportRecordsXlsx(mergedRecords, "5단계 결과.xlsx");
         setStatus(
           "status-step6",
           `완료: ${mergedRecords.length}행 다운로드, ${matchedCount}행 병합 (HHI>0: ${nonZeroHhiCount}교)`,
