@@ -258,7 +258,7 @@
 <body>
   <header>
     <h1>다차원 사회·학업 동질성 지수(SAHI) 계산기</h1>
-    <p>1단계 → 2단계 → 3-1 → 3-2 → 4단계 → 5단계 → 6단계 순서로 파일을 처리합니다.</p>
+    <p>1단계 → 2단계 → 3-1 → 3-2 → 4단계 → 5단계 → 6단계 → 7단계 순서로 파일을 처리합니다.</p>
   </header>
 
   <nav class="tabs" role="tablist">
@@ -268,6 +268,7 @@
     <button type="button" data-page="step4" role="tab" aria-selected="false">4단계</button>
     <button type="button" data-page="step5" role="tab" aria-selected="false">5단계</button>
     <button type="button" data-page="step6" role="tab" aria-selected="false">6단계</button>
+    <button type="button" data-page="step7" role="tab" aria-selected="false">7단계</button>
   </nav>
 
   <main>
@@ -704,6 +705,50 @@
         </div>
       </div>
     </section>
+
+    <section id="page-step7" class="page" role="tabpanel">
+      <div class="card">
+        <h2>7-1. 6-4단계 결과 업로드</h2>
+        <p class="hint"><strong>6-4단계 결과 파일을 업로드하세요.</strong></p>
+        <div class="dropzone" id="drop-step7-1-base" tabindex="0">
+          <input type="file" id="file-step7-1-base" accept=".xls,.xlsx,.json,.csv" />
+          <strong>6-4단계 결과 파일 업로드</strong>
+          <span>6-4단계 결과.xlsx 또는 .json, .csv</span>
+        </div>
+        <p class="status" id="status-step7-1-base"></p>
+      </div>
+
+      <div class="card">
+        <h2>7-2. H_job 병합</h2>
+        <p class="hint"><strong>1) 아래 버튼으로 직업·소득 분포 데이터를 다운로드하세요.</strong></p>
+        <div class="btn-row">
+          <a
+            class="download-link"
+            href="https://docs.google.com/spreadsheets/d/1os2uK6KAy0HYerxZrhuYd4dHf_jHaAza/export?format=xlsx"
+            target="_blank"
+            rel="noopener"
+          >
+            직업·소득 분포 데이터 다운받기
+          </a>
+        </div>
+
+        <p class="hint"><strong>2) 다운로드한 파일을 업로드한 뒤 H_job 병합을 실행하세요.</strong></p>
+        <div class="dropzone" id="drop-step7-2-job" tabindex="0" style="margin-top:1rem">
+          <input type="file" id="file-step7-2-job" accept=".xls,.xlsx,.json,.csv" />
+          <strong>직업·소득 분포 데이터 파일 업로드</strong>
+          <span>SIGNGU_NM → 지역, H_job 계산</span>
+        </div>
+        <p class="status" id="status-step7-2-job"></p>
+
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step7-2-process">7-2 H_job 병합 후 XLSX 다운로드</button>
+        </div>
+        <p class="status" id="status-step7-2"></p>
+        <div class="table-wrap" id="preview-step7-2-wrap" hidden>
+          <table id="preview-step7-2"></table>
+        </div>
+      </div>
+    </section>
   </main>
 
   <script>
@@ -760,6 +805,39 @@
     let step64BaseFile = null;
     const STEP64_ISCU_RATE_HEADERS = ["다문화학생비율", "청소년 교육급여자 비율", "P_special"];
     const STEP64_SIGUNGU_HEADERS = ["시군구명", "시군 구명"];
+    let step7BaseRecords = null;
+    let step72JobFile = null;
+    const STEP7_DAEGU_REGION_FULL = [
+      "대구광역시 중구",
+      "대구광역시 동구",
+      "대구광역시 서구",
+      "대구광역시 남구",
+      "대구광역시 북구",
+      "대구광역시 수성구",
+      "대구광역시 달서구",
+      "대구광역시 달성군",
+      "대구광역시 군위군"
+    ];
+    const STEP7_DAEGU_REGION_SHORT = [
+      "중구",
+      "동구",
+      "서구",
+      "남구",
+      "북구",
+      "수성구",
+      "달서구",
+      "달성군",
+      "군위군"
+    ];
+    const STEP7_HJOB_RATE_COLS = [
+      "LTRS_INCOME_NMPR_RATE",
+      "GNRL_INCOME_NMPR_RATE",
+      "PRFSN_INCOME_NMPR_RATE",
+      "REPRSNT_RATE",
+      "SEEM_RATE",
+      "PRFSN_SEEM_RATE",
+      "ETC_RATE"
+    ];
     const STEP63_SPECIAL_SUM_COLS = ["S", "V", "AE", "AH", "AK"];
     const STEP63_OPEN_ID_HEADERS = ["개방ID", "개방 ID", "개방id"];
     const STEP63_REGION_HEADERS = ["시군구명", "시군 구명"];
@@ -771,6 +849,7 @@
       "학교명",
       "지역",
       "전체학생수 계",
+      "학구순전입률",
       "소비 동질성",
       "1위 업종",
       "HHI졸업후",
@@ -2003,6 +2082,7 @@
           학교명: schoolName ?? "",
           지역: findRecordValue(record, "지역"),
           "전체학생수 계": findRecordValue(record, "전체학생수 계"),
+          "학구순전입률": findRecordValue(record, "학구순전입률"),
           "소비 동질성":
             findRecordValue(record, "소비 동질성") || findRecordValue(record, "동질화 지수"),
           "1위 업종": findRecordValue(record, "1위 업종"),
@@ -2303,6 +2383,101 @@
       });
 
       return { outputRecords, computedCount, mismatchRegionCount };
+    }
+
+    const STEP7_FULL_REGION_TO_SHORT = STEP7_DAEGU_REGION_FULL.reduce((map, full, index) => {
+      map[normalize(full)] = STEP7_DAEGU_REGION_SHORT[index];
+      return map;
+    }, {});
+
+    const STEP7_ALLOWED_FULL_REGIONS = new Set(STEP7_DAEGU_REGION_FULL.map((name) => normalize(name)));
+
+    function renameSignguNmToRegion(record) {
+      const key = Object.keys(record || {}).find(
+        (header) => normalizeHeaderKey(header) === normalizeHeaderKey("SIGNGU_NM")
+      );
+      if (!key) return record;
+      const out = { ...record };
+      out["지역"] = out[key];
+      delete out[key];
+      return out;
+    }
+
+    function computeStep72HJob(record) {
+      let sumSquares = 0;
+      STEP7_HJOB_RATE_COLS.forEach((colName) => {
+        const rate = toNumber(findRecordValue(record, colName));
+        sumSquares += rate * rate;
+      });
+      return Number(sumSquares.toFixed(6));
+    }
+
+    function processStep72JobRecords(records) {
+      const signguKey =
+        records.length > 0
+          ? Object.keys(records[0]).find(
+              (header) => normalizeHeaderKey(header) === normalizeHeaderKey("SIGNGU_NM")
+            )
+          : "";
+
+      if (!signguKey) {
+        throw new Error("직업·소득 분포 파일에 'SIGNGU_NM' 열이 필요합니다.");
+      }
+
+      const missingRateCols = STEP7_HJOB_RATE_COLS.filter(
+        (colName) => !records.some((row) => findRecordValue(row, colName) !== "")
+      );
+      if (missingRateCols.length) {
+        throw new Error("다음 열이 필요합니다: " + missingRateCols.join(", "));
+      }
+
+      const filtered = records
+        .map((record) => {
+          const rawRegion = String(record[signguKey] ?? "").trim();
+          const normalizedRegion = normalize(rawRegion);
+          if (!STEP7_ALLOWED_FULL_REGIONS.has(normalizedRegion)) return null;
+
+          const shortRegion = STEP7_FULL_REGION_TO_SHORT[normalizedRegion] || normalizeDaeguRegion(rawRegion);
+          const withRegionValue = { ...record, [signguKey]: shortRegion };
+          const renamed = renameSignguNmToRegion(withRegionValue);
+          const hJob = computeStep72HJob(renamed);
+          return { 지역: findRecordValue(renamed, "지역"), H_job: hJob };
+        })
+        .filter(Boolean);
+
+      if (!filtered.length) {
+        throw new Error(
+          "대구 9개 구·군(대구광역시 중구 등)에 해당하는 행이 없습니다. SIGNGU_NM 값을 확인해주세요."
+        );
+      }
+
+      return filtered;
+    }
+
+    function mergeStep72WithBase(baseRecords, jobRecords) {
+      const jobByRegion = new Map();
+      jobRecords.forEach((row) => {
+        const region = normalizeDaeguRegion(row.지역);
+        if (region) jobByRegion.set(region, row);
+      });
+
+      let matchedCount = 0;
+      const mergedRecords = baseRecords.map((record) => {
+        const regionKey = findRecordKey(record, "지역");
+        const region = normalizeDaeguRegion(regionKey ? record[regionKey] : findRecordValue(record, "지역"));
+        const out = { ...record };
+
+        if (region && jobByRegion.has(region)) {
+          out.H_job = jobByRegion.get(region).H_job;
+          matchedCount += 1;
+        } else if (!Object.prototype.hasOwnProperty.call(out, "H_job")) {
+          out.H_job = "";
+        }
+
+        return out;
+      });
+
+      return { mergedRecords, matchedCount };
     }
 
     function analyzeStep4Sheet(sheetName, worksheet) {
@@ -2800,6 +2975,74 @@
         );
       } catch (error) {
         setStatus("status-step6-4", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step7-1-base", "file-step7-1-base", async (files) => {
+      try {
+        setStatus("status-step7-1-base", "6-4단계 결과 파일 읽는 중...");
+        const records = (await loadFile(files[0])).records;
+        if (!records.length) throw new Error("파일에 데이터가 없습니다.");
+
+        const hasRegionCol = records.some((row) => normalizeDaeguRegion(findRecordValue(row, "지역")) !== "");
+        if (!hasRegionCol) {
+          throw new Error("6-4단계 결과 파일에 '지역' 열이 필요합니다.");
+        }
+
+        step7BaseRecords = records;
+        setStatus(
+          "status-step7-1-base",
+          `${files[0].name} 로드 완료 (${step7BaseRecords.length}행)`,
+          "ok"
+        );
+      } catch (error) {
+        step7BaseRecords = null;
+        setStatus("status-step7-1-base", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step7-2-job", "file-step7-2-job", (files) => {
+      step72JobFile = files[0];
+      setStatus("status-step7-2-job", `${step72JobFile.name} 선택됨`, "ok");
+    });
+
+    document.getElementById("btn-step7-2-process").addEventListener("click", async () => {
+      if (!step7BaseRecords) {
+        alert("7-1에서 6-4단계 결과 파일을 먼저 업로드해주세요.");
+        return;
+      }
+      if (!step72JobFile) {
+        alert("직업·소득 분포 데이터 파일을 선택해주세요.");
+        return;
+      }
+
+      try {
+        setStatus("status-step7-2", "7-2 H_job 병합 중...");
+        const jobSourceRecords = (await loadFile(step72JobFile)).records;
+        if (!jobSourceRecords.length) throw new Error("직업·소득 분포 파일에 데이터가 없습니다.");
+
+        const jobTable = processStep72JobRecords(jobSourceRecords);
+        const { mergedRecords, matchedCount } = mergeStep72WithBase(step7BaseRecords, jobTable);
+        const resultData = recordsToData(mergedRecords);
+
+        renderTable(
+          document.getElementById("preview-step7-2"),
+          document.getElementById("preview-step7-2-wrap"),
+          {
+            headers: resultData.columns,
+            rows: resultData.records.map((record) =>
+              resultData.columns.map((col) => record[col] ?? "")
+            )
+          }
+        );
+        exportRecordsXlsx(mergedRecords, "7-2단계 결과.xlsx");
+        setStatus(
+          "status-step7-2",
+          `완료: ${mergedRecords.length}행 다운로드, ${matchedCount}행 지역 기준 H_job 병합 (직업·소득 ${jobTable.length}구·군)`,
+          "ok"
+        );
+      } catch (error) {
+        setStatus("status-step7-2", "오류: " + error.message, "error");
       }
     });
 
