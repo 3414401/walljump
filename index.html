@@ -646,7 +646,42 @@
 
       <div class="card">
         <h2>6-3. P_special 계산하기</h2>
-        <p class="hint">추후 기능이 추가될 예정입니다.</p>
+        <p class="hint"><strong>0) 5단계 결과 파일을 업로드하세요.</strong></p>
+        <div class="dropzone" id="drop-step6-3-base" tabindex="0">
+          <input type="file" id="file-step6-3-base" accept=".xls,.xlsx,.json,.csv" />
+          <strong>5단계 결과 파일 업로드</strong>
+          <span>5단계 결과.xlsx 또는 .json, .csv</span>
+        </div>
+        <p class="status" id="status-step6-3-base"></p>
+
+        <p class="hint"><strong>1) 일반학교의 특수교육대상자 수 파일을 다운로드하세요.</strong></p>
+        <div class="btn-row">
+          <a
+            class="download-link"
+            href="https://docs.google.com/spreadsheets/d/1IczvNPjLp32Hk0fjV4JYmbMGW3mLNo-C/export?format=xlsx"
+            target="_blank"
+            rel="noopener"
+          >
+            일반학교의 특수교육대상자 수 다운받기
+          </a>
+        </div>
+
+        <p class="hint"><strong>2) 다운로드한 파일을 업로드하세요.</strong> (S·V·AE·AH·AK 열 위치로 특수교육대상자수 합산)</p>
+        <div class="dropzone" id="drop-step6-3-special" tabindex="0" style="margin-top:1rem">
+          <input type="file" id="file-step6-3-special" accept=".xls,.xlsx" />
+          <strong>특수교육대상자 수 파일 업로드</strong>
+          <span>개방ID·시군구명(열 이름) / .xlsx, .xls</span>
+        </div>
+        <p class="status" id="status-step6-3-special"></p>
+
+        <div class="btn-row">
+          <button type="button" class="primary" id="btn-step6-3-process">6-3 P_special 계산 후 XLSX 다운로드</button>
+        </div>
+        <p class="hint" style="margin-top:0.5rem">(지표가 공개되지 않은 학교의 경우 평균값으로 대체.)</p>
+        <p class="status" id="status-step6-3"></p>
+        <div class="table-wrap" id="preview-step6-3-wrap" hidden>
+          <table id="preview-step6-3"></table>
+        </div>
       </div>
     </section>
   </main>
@@ -700,10 +735,24 @@
     let step62BaseFile = null;
     let step62BenefitFile = null;
     let step62YouthFile = null;
+    let step63BaseFile = null;
+    let step63SpecialFile = null;
+    const STEP63_SPECIAL_SUM_COLS = ["S", "V", "AE", "AH", "AK"];
+    const STEP63_OPEN_ID_HEADERS = ["개방ID", "개방 ID", "개방id"];
+    const STEP63_REGION_HEADERS = ["시군구명", "시군 구명"];
     const STEP5_SCHOOL_TYPE_CATEGORIES = ["초등학교", "중학교", "고등학교"];
     const STEP5_SCHOOL_TYPE_HEADERS = ["학제유형명", "학제유형", "학제 유형"];
     const STEP5_SCHOOL_NAME_HEADERS = ["학교명", "학교 명"];
-    const STEP5_OUTPUT_COLUMNS = ["개방ID", "학교명", "HHI졸업후", "H_path"];
+    const STEP5_OUTPUT_COLUMNS = [
+      "개방ID",
+      "학교명",
+      "지역",
+      "전체학생수 계",
+      "소비 동질성",
+      "1위 업종",
+      "HHI졸업후",
+      "H_path"
+    ];
     const STEP5_OPEN_ID_HEADERS = ["개방ID", "개방 ID", "개방id"];
     const STEP5_HIGH_SCHOOL_HEADERS = {
       graduateTotal: ["유초중등학생_졸업생수", "유초중등학생 졸업생수"],
@@ -1929,6 +1978,11 @@
         return {
           개방ID: getStep5OpenIdValue(record),
           학교명: schoolName ?? "",
+          지역: findRecordValue(record, "지역"),
+          "전체학생수 계": findRecordValue(record, "전체학생수 계"),
+          "소비 동질성":
+            findRecordValue(record, "소비 동질성") || findRecordValue(record, "동질화 지수"),
+          "1위 업종": findRecordValue(record, "1위 업종"),
           "HHI졸업후": record["HHI졸업후"] ?? "",
           H_path: record["H_path"] ?? ""
         };
@@ -2015,6 +2069,149 @@
       });
 
       return { mergedRecords: filledRecords, avgHhi, avgHPath, filledHhiCount, filledHPathCount };
+    }
+
+    function normalizeOpenId(value) {
+      return String(value ?? "").trim();
+    }
+
+    function recordsFromStep63SpecialSheetRows(rows, sheetNameHint) {
+      const nonEmptyRows = rows.filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
+
+      for (let headerIndex = 0; headerIndex < Math.min(nonEmptyRows.length, 25); headerIndex += 1) {
+        const headers = nonEmptyRows[headerIndex].map((cell) => String(cell ?? "").trim());
+        const hasOpenId = headers.some((header) => headerMatchesAny(header, STEP63_OPEN_ID_HEADERS));
+        if (!hasOpenId) continue;
+
+        return nonEmptyRows.slice(headerIndex + 1).map((row) => {
+          const record = { _sheetHint: sheetNameHint || "", _cells: row };
+          headers.forEach((header, index) => {
+            if (header) record[header] = row[index] ?? "";
+          });
+          return record;
+        }).filter((record) => {
+          const openId = normalizeOpenId(getValueByHeaderAliases(record, STEP63_OPEN_ID_HEADERS));
+          return openId && openId !== "개방ID";
+        });
+      }
+
+      return [];
+    }
+
+    async function loadStep63SpecialRecords(file) {
+      const name = (file.name || "").toLowerCase();
+      let records = [];
+
+      if (name.endsWith(".xls") || name.endsWith(".xlsx")) {
+        const workbook = await loadWorkbook(file);
+        workbook.SheetNames.forEach((sheetName) => {
+          const sheet = workbook.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+          records = records.concat(recordsFromStep63SpecialSheetRows(rows, sheetName));
+        });
+      } else {
+        throw new Error("특수교육대상자 수 파일은 .xlsx 또는 .xls 형식이어야 합니다.");
+      }
+
+      if (!records.length) {
+        throw new Error("특수교육대상자 수 파일에서 '개방ID' 열이 있는 데이터 행을 찾지 못했습니다.");
+      }
+
+      const missingCells = records.filter((row) => !Array.isArray(row._cells)).length;
+      if (missingCells > 0) {
+        throw new Error("엑셀 열(S, V, AE, AH, AK) 위치를 읽지 못했습니다. xlsx 파일을 다시 업로드해주세요.");
+      }
+
+      return records;
+    }
+
+    function buildStep63SpecialTable(records) {
+      return records
+        .map((row) => {
+          const specialCount = STEP63_SPECIAL_SUM_COLS.reduce(
+            (sum, columnLetters) => sum + getStep5Col(row, columnLetters),
+            0
+          );
+          return {
+            개방ID: normalizeOpenId(getValueByHeaderAliases(row, STEP63_OPEN_ID_HEADERS)),
+            시군구명: getValueByHeaderAliases(row, STEP63_REGION_HEADERS),
+            특수교육대상자수: Number(specialCount.toFixed(6))
+          };
+        })
+        .filter((row) => row.개방ID);
+    }
+
+    function mergeStep63WithBase(baseRecords, specialRecords) {
+      const specialByOpenId = new Map();
+      specialRecords.forEach((row) => {
+        const openId = normalizeOpenId(row.개방ID);
+        if (openId) specialByOpenId.set(openId, row);
+      });
+
+      let matchedCount = 0;
+      const mergedRecords = baseRecords.map((record) => {
+        const openId = normalizeOpenId(getStep5OpenIdValue(record));
+        const out = { ...record };
+
+        if (openId && specialByOpenId.has(openId)) {
+          const specialRow = specialByOpenId.get(openId);
+          out["특수교육대상자수"] = specialRow["특수교육대상자수"];
+          out["시군구명"] = specialRow["시군구명"];
+          matchedCount += 1;
+        } else {
+          if (!Object.prototype.hasOwnProperty.call(out, "특수교육대상자수")) out["특수교육대상자수"] = "";
+          if (!Object.prototype.hasOwnProperty.call(out, "시군구명")) out["시군구명"] = "";
+        }
+
+        return out;
+      });
+
+      return { mergedRecords, matchedCount };
+    }
+
+    function computeStep63PSpecial(mergedRecords) {
+      return mergedRecords.map((record) => {
+        const totalStudents = toNumber(findRecordValue(record, "전체학생수 계"));
+        const specialCount = toNumber(record["특수교육대상자수"]);
+        const pSpecial =
+          totalStudents > 0 ? Number((specialCount / totalStudents).toFixed(6)) : "";
+        return { ...record, P_special: pSpecial };
+      });
+    }
+
+    function isStep63MetricEmpty(value) {
+      if (value === null || value === undefined) return true;
+      return String(value).trim() === "";
+    }
+
+    function toStep63MetricNumber(value) {
+      if (isStep63MetricEmpty(value)) return null;
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function applyStep63PSpecialAverage(mergedRecords) {
+      const pValues = [];
+
+      mergedRecords.forEach((record) => {
+        const p = toStep63MetricNumber(record.P_special);
+        if (p !== null) pValues.push(p);
+      });
+
+      const avgP =
+        pValues.length > 0 ? Number((pValues.reduce((sum, v) => sum + v, 0) / pValues.length).toFixed(6)) : null;
+
+      let filledCount = 0;
+      const filledRecords = mergedRecords.map((record) => {
+        const out = { ...record };
+        if (avgP !== null && isStep63MetricEmpty(out.P_special)) {
+          out.P_special = avgP;
+          filledCount += 1;
+        }
+        return out;
+      });
+
+      return { mergedRecords: filledRecords, avgP, filledCount };
     }
 
     function analyzeStep4Sheet(sheetName, worksheet) {
@@ -2395,6 +2592,77 @@
         );
       } catch (error) {
         setStatus("status-step6-2", "오류: " + error.message, "error");
+      }
+    });
+
+    setupDropzone("drop-step6-3-base", "file-step6-3-base", (files) => {
+      step63BaseFile = files[0];
+      setStatus("status-step6-3-base", `${step63BaseFile.name} 선택됨`, "ok");
+    });
+
+    setupDropzone("drop-step6-3-special", "file-step6-3-special", (files) => {
+      step63SpecialFile = files[0];
+      setStatus("status-step6-3-special", `${step63SpecialFile.name} 선택됨`, "ok");
+    });
+
+    document.getElementById("btn-step6-3-process").addEventListener("click", async () => {
+      if (!step63BaseFile) {
+        alert("5단계 결과 파일을 선택해주세요.");
+        return;
+      }
+      if (!step63SpecialFile) {
+        alert("일반학교의 특수교육대상자 수 파일을 선택해주세요.");
+        return;
+      }
+
+      try {
+        setStatus("status-step6-3", "6-3 P_special 계산 중...");
+        const baseRecords = (await loadFile(step63BaseFile)).records;
+        if (!baseRecords.length) throw new Error("5단계 결과 파일에 데이터가 없습니다.");
+
+        const hasOpenIdCol = baseRecords.some((row) => normalizeOpenId(getStep5OpenIdValue(row)) !== "");
+        if (!hasOpenIdCol) {
+          throw new Error("5단계 결과 파일에 '개방ID' 열이 필요합니다.");
+        }
+
+        const hasTotalStudentsCol = baseRecords.some((row) => findRecordValue(row, "전체학생수 계") !== "");
+        if (!hasTotalStudentsCol) {
+          throw new Error("5단계 결과 파일에 '전체학생수 계' 열이 필요합니다.");
+        }
+
+        const specialSourceRecords = await loadStep63SpecialRecords(step63SpecialFile);
+        const specialTable = buildStep63SpecialTable(specialSourceRecords);
+        if (!specialTable.length) {
+          throw new Error("특수교육대상자수를 계산할 수 있는 행이 없습니다. 개방ID·S/V/AE/AH/AK 열을 확인해주세요.");
+        }
+
+        const { mergedRecords: mergedBeforePSpecial, matchedCount } = mergeStep63WithBase(
+          baseRecords,
+          specialTable
+        );
+        const withPSpecial = computeStep63PSpecial(mergedBeforePSpecial);
+        const { mergedRecords, avgP, filledCount } = applyStep63PSpecialAverage(withPSpecial);
+        const resultData = recordsToData(mergedRecords);
+
+        renderTable(
+          document.getElementById("preview-step6-3"),
+          document.getElementById("preview-step6-3-wrap"),
+          {
+            headers: resultData.columns,
+            rows: resultData.records.map((record) =>
+              resultData.columns.map((col) => record[col] ?? "")
+            )
+          }
+        );
+        exportRecordsXlsx(mergedRecords, "6-3단계 결과.xlsx");
+        const avgNote = filledCount > 0 ? ` · P_special 평균 보정 ${filledCount}행` : "";
+        setStatus(
+          "status-step6-3",
+          `완료: ${mergedRecords.length}행 다운로드, ${matchedCount}행 개방ID 병합${avgNote}`,
+          "ok"
+        );
+      } catch (error) {
+        setStatus("status-step6-3", "오류: " + error.message, "error");
       }
     });
 
