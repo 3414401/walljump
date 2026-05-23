@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>다차원 사회·학업 동질성 지수(SAHI) 계산기</title>
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
   <style>
     :root {
       --bg: #f4f6f9;
@@ -271,8 +271,8 @@
   </header>
 
   <nav class="tabs" role="tablist">
-    <button type="button" data-page="step0" role="tab" aria-selected="false">0단계</button>
-    <button type="button" class="active" data-page="step1" role="tab" aria-selected="true">1단계</button>
+    <button type="button" class="active" data-page="step0" role="tab" aria-selected="true">0단계</button>
+    <button type="button" data-page="step1" role="tab" aria-selected="false">1단계</button>
     <button type="button" data-page="step2" role="tab" aria-selected="false">2단계</button>
     <button type="button" data-page="step3" role="tab" aria-selected="false">3단계</button>
     <button type="button" data-page="step4" role="tab" aria-selected="false">4단계</button>
@@ -283,14 +283,14 @@
   </nav>
 
   <main>
-    <section id="page-step0" class="page" role="tabpanel">
+    <section id="page-step0" class="page active" role="tabpanel">
       <div class="card">
         <h2>사용 방법</h2>
         <p class="hint">안내 내용은 추후 업데이트될 예정입니다.</p>
       </div>
     </section>
 
-    <section id="page-step1" class="page active" role="tabpanel">
+    <section id="page-step1" class="page" role="tabpanel">
       <div class="card">
         <h2>1단계</h2>
         <p class="hint">
@@ -1153,7 +1153,10 @@
     }
 
     function exportRecordsXlsx(records, filename, options) {
-      const worksheet = XLSX.utils.json_to_sheet(records);
+      const headers = options && options.headers ? options.headers : null;
+      const worksheet = headers
+        ? XLSX.utils.json_to_sheet(records, { header: headers })
+        : XLSX.utils.json_to_sheet(records);
       const highlightColumns = options && options.highlightColumns ? options.highlightColumns : [];
       if (highlightColumns.length) applyXlsxColumnFill(worksheet, highlightColumns);
       const workbook = XLSX.utils.book_new();
@@ -2627,7 +2630,9 @@
 
       const rootPart = Math.sqrt((iScu * iScu + hJob * hJob + hPath * hPath + hPpc * hPpc) / 4);
       const scalePart =
-        1 + 1.3 * Math.sqrt(Math.max(0, rNet)) * (studentCount / 490) * hPpc + Math.max(0, 1 - studentCount / 490);
+        1 +
+        1.4 * Math.sqrt(Math.max(0, rNet) / 100) * (studentCount / 490) * hPpc +
+        Math.max(0, 1 - studentCount / 490);
       return Number((rootPart * scalePart).toFixed(6));
     }
 
@@ -3274,7 +3279,10 @@
           200,
           step8HighlightColumns
         );
-        exportRecordsXlsx(outputRecords, "8단계 결과.xlsx", { highlightColumns: step8HighlightColumns });
+        exportRecordsXlsx(outputRecords, "8단계 결과.xlsx", {
+          headers: STEP8_OUTPUT_COLUMNS,
+          highlightColumns: step8HighlightColumns
+        });
         setStatus(
           "status-step8",
           `완료: ${outputRecords.length}행 다운로드, 학생 수 없음 ${removedCount}행 제외, 최종지수(H_m) ${hmFilledCount}행 계산`,
